@@ -4,6 +4,9 @@ import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc,
   doc, onSnapshot, serverTimestamp, query, orderBy
 } from "firebase/firestore";
+import {
+  getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
+} from "firebase/auth";
 
 /* ================================================================
    CONFIGURAÇÃO — preencha LOCALMENTE no seu PC, nunca cole em chats
@@ -24,10 +27,15 @@ const CLOUDINARY = {
 
 const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/publicar-imovel";
 const WHATSAPP_NEGOCIOS = "(62) 9XXXX-XXXX";
+
+// E-mails com acesso TOTAL (excluir, publicar). Os demais usuários
+// criados no Console Firebase > Authentication entram como corretores.
+const ADMINS = ["marcusbeda@gmail.com"];
 /* ================================================================ */
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
+const auth = getAuth(app);
 const COL = "imoveis"; // coleção separada — não interfere em Contas/Vendas
 
 const TIPOS = ["Casa", "Apartamento", "Lote", "Sobrado", "Comercial", "Rural"];
@@ -42,7 +50,7 @@ const STATUS = {
 const VAZIO = {
   titulo: "", tipo: "Casa", operacao: "Venda", preco: "",
   cidade: "Goiânia", bairro: "", endereco: "",
-  quartos: "", banheiros: "", vagas: "", area: "",
+  quartos: "", banheiros: "", vagas: "", area: "", areaLote: "",
   descricao: "", fotos: [], status: "disponivel",
 };
 
@@ -59,7 +67,8 @@ function gerarAnuncio(im) {
   if (im.quartos) specs.push(`${im.quartos} quarto${im.quartos > 1 ? "s" : ""}`);
   if (im.banheiros) specs.push(`${im.banheiros} banheiro${im.banheiros > 1 ? "s" : ""}`);
   if (im.vagas) specs.push(`${im.vagas} vaga${im.vagas > 1 ? "s" : ""}`);
-  if (im.area) specs.push(`${im.area} m²`);
+  if (im.area) specs.push(`${im.area} m² construídos`);
+  if (im.areaLote) specs.push(`lote de ${im.areaLote} m²`);
   if (specs.length) linhas.push(`✨ ${specs.join(" · ")}`);
   linhas.push(`💰 ${im.operacao}: ${fmtPreco(im.preco)}${im.operacao === "Aluguel" ? "/mês" : ""}`);
   if (im.descricao) linhas.push(`\n${im.descricao}`);
@@ -68,6 +77,68 @@ function gerarAnuncio(im) {
   const cidadeTag = im.cidade.toLowerCase().replace(/\s/g, "");
   linhas.push(`\n#imoveis${cidadeTag} #${im.tipo.toLowerCase()}avenda #emcazaimoveis #${cidadeTag} #imobiliaria #seuimovelaqui`);
   return linhas.join("\n");
+}
+
+function gerarFicha(im) {
+  const l = [];
+  l.push(`*${im.titulo}*`);
+  l.push("");
+  l.push(`*Tipo:* ${im.tipo} · *${im.operacao}*`);
+  l.push(`*Valor:* ${fmtPreco(im.preco)}${im.operacao === "Aluguel" ? "/mês" : ""}`);
+  l.push(`*Localização:* ${im.bairro}${im.bairro && im.cidade ? ", " : ""}${im.cidade}`);
+  l.push("");
+  if (im.quartos) l.push(`🛏 ${im.quartos} quarto${im.quartos > 1 ? "s" : ""}`);
+  if (im.banheiros) l.push(`🚿 ${im.banheiros} banheiro${im.banheiros > 1 ? "s" : ""}`);
+  if (im.vagas) l.push(`🚗 ${im.vagas} vaga${im.vagas > 1 ? "s" : ""} de garagem`);
+  if (im.area) l.push(`📐 ${im.area} m² de área construída`);
+  if (im.areaLote) l.push(`🌳 Lote de ${im.areaLote} m²`);
+  if (im.descricao) { l.push(""); l.push(im.descricao); }
+  l.push("");
+  l.push(`📲 *Agende sua visita:* ${WHATSAPP_NEGOCIOS}`);
+  l.push(`Marcus Beda — EMCAZA Imóveis · CRECI 23.152`);
+  return l.join("\n");
+}
+
+function TelaLogin() {
+  const [email, setEmail] = useState("");
+  const [senha, setSenha] = useState("");
+  const [erro, setErro] = useState("");
+  const [entrando, setEntrando] = useState(false);
+
+  async function entrar() {
+    if (!email || !senha) { setErro("Preencha e-mail e senha."); return; }
+    setErro(""); setEntrando(true);
+    try {
+      await signInWithEmailAndPassword(auth, email.trim(), senha);
+    } catch {
+      setErro("E-mail ou senha incorretos.");
+    } finally {
+      setEntrando(false);
+    }
+  }
+
+  return (
+    <div className="hub login-wrap">
+      <style>{css}</style>
+      <div className="card login">
+        <span className="marca">EMCAZA</span>
+        <p className="login-sub">Hub de Imóveis · acesso restrito</p>
+        <label>E-mail
+          <input type="email" value={email} onChange={(e) => setEmail(e.target.value)}
+            autoComplete="username" />
+        </label>
+        <label>Senha
+          <input type="password" value={senha} onChange={(e) => setSenha(e.target.value)}
+            autoComplete="current-password"
+            onKeyDown={(e) => e.key === "Enter" && entrar()} />
+        </label>
+        {erro && <p className="erro">{erro}</p>}
+        <button className="primario login-btn" onClick={entrar} disabled={entrando}>
+          {entrando ? "Entrando..." : "Entrar"}
+        </button>
+      </div>
+    </div>
+  );
 }
 
 export default function HubImoveis() {
@@ -79,13 +150,21 @@ export default function HubImoveis() {
   const [enviando, setEnviando] = useState(false);
   const [toast, setToast] = useState("");
   const [galeria, setGaleria] = useState(null); // { fotos, idx, titulo }
+  const [user, setUser] = useState(null);
+  const [authPronto, setAuthPronto] = useState(false);
+
+  useEffect(
+    () => onAuthStateChanged(auth, (u) => { setUser(u); setAuthPronto(true); }),
+    []
+  );
 
   useEffect(() => {
+    if (!user) { setImoveis([]); return; }
     const q = query(collection(db, COL), orderBy("criadoEm", "desc"));
     return onSnapshot(q, (snap) =>
       setImoveis(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
-  }, []);
+  }, [user]);
 
   const avisar = (msg) => { setToast(msg); setTimeout(() => setToast(""), 3500); };
   const set = (campo) => (e) => setForm({ ...form, [campo]: e.target.value });
@@ -156,6 +235,11 @@ export default function HubImoveis() {
     avisar("Texto do anúncio copiado");
   }
 
+  function copiarFicha(im) {
+    navigator.clipboard.writeText(gerarFicha(im));
+    avisar("Ficha completa copiada — pronta para o WhatsApp");
+  }
+
   async function publicar(im) {
     setEnviando(true);
     try {
@@ -176,6 +260,17 @@ export default function HubImoveis() {
 
   const lista = imoveis.filter((im) => filtro === "todos" || im.status === filtro);
 
+  if (!authPronto) {
+    return (
+      <div className="hub"><style>{css}</style>
+        <div className="vazio">Carregando...</div>
+      </div>
+    );
+  }
+  if (!user) return <TelaLogin />;
+
+  const papel = ADMINS.includes(user.email) ? "admin" : "corretor";
+
   return (
     <div className="hub">
       <style>{css}</style>
@@ -193,6 +288,10 @@ export default function HubImoveis() {
             onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); }}>
             + Novo imóvel
           </button>
+          <span className="quem" title={user.email}>
+            {user.email.split("@")[0]}{papel === "admin" ? " · admin" : ""}
+          </span>
+          <button onClick={() => signOut(auth)}>Sair</button>
         </nav>
       </header>
 
@@ -230,7 +329,11 @@ export default function HubImoveis() {
             <label>Quartos<input value={form.quartos} onChange={set("quartos")} inputMode="numeric" /></label>
             <label>Banheiros<input value={form.banheiros} onChange={set("banheiros")} inputMode="numeric" /></label>
             <label>Vagas<input value={form.vagas} onChange={set("vagas")} inputMode="numeric" /></label>
-            <label>Área (m²)<input value={form.area} onChange={set("area")} inputMode="numeric" /></label>
+            <label>Área construída (m²)<input value={form.area} onChange={set("area")} inputMode="numeric" /></label>
+          </div>
+
+          <div className="grid4">
+            <label>Área do lote (m²)<input value={form.areaLote || ""} onChange={set("areaLote")} inputMode="numeric" /></label>
           </div>
 
           <label>Endereço completo (uso interno — não sai no anúncio)
@@ -306,17 +409,23 @@ export default function HubImoveis() {
                   <p className="preco">{fmtPreco(im.preco)}{im.operacao === "Aluguel" && <small>/mês</small>}</p>
                   <p className="specs">
                     {[im.quartos && `${im.quartos}q`, im.banheiros && `${im.banheiros}b`,
-                      im.vagas && `${im.vagas}v`, im.area && `${im.area}m²`].filter(Boolean).join(" · ")}
+                      im.vagas && `${im.vagas}v`, im.area && `${im.area}m²`,
+                      im.areaLote && `lote ${im.areaLote}m²`].filter(Boolean).join(" · ")}
                   </p>
                   {im.publicadoEm && <p className="pub">Publicado {new Date(im.publicadoEm).toLocaleDateString("pt-BR")}</p>}
                   <div className="botoes">
-                    <button className="primario" onClick={() => publicar(im)} disabled={enviando}>Publicar</button>
+                    {papel === "admin" && (
+                      <button className="primario" onClick={() => publicar(im)} disabled={enviando}>Publicar</button>
+                    )}
                     <button onClick={() => copiarAnuncio(im)}>Copiar anúncio</button>
+                    <button onClick={() => copiarFicha(im)}>Copiar ficha</button>
                     <button onClick={() => editar(im)}>Editar</button>
                     <select value={im.status} onChange={(e) => mudarStatus(im, e.target.value)}>
                       {Object.entries(STATUS).map(([k, v]) => <option key={k} value={k}>{v.label}</option>)}
                     </select>
-                    <button className="perigo" onClick={() => excluir(im.id)}>Excluir</button>
+                    {papel === "admin" && (
+                      <button className="perigo" onClick={() => excluir(im.id)}>Excluir</button>
+                    )}
                   </div>
                 </div>
               </article>
@@ -412,4 +521,12 @@ const css = `
   .g-seta.dir { right: 12px; }
   .g-fechar { position: fixed; top: 14px; right: 14px; background: #1d2226cc; border: 1px solid #2a2f34; color: #e8e4dc; font-size: 26px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; z-index: 51; }
   .g-info { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1d2226cc; color: #e8e4dc; font-size: 14px; padding: 8px 18px; border-radius: 20px; max-width: 90vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .login-wrap { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 16px; }
+  .card.login { width: 100%; max-width: 380px; text-align: center; padding: 32px 28px; }
+  .card.login .marca { font-size: 26px; }
+  .login-sub { color: #8b9299; font-size: 13px; margin: 6px 0 22px; }
+  .card.login label { text-align: left; }
+  .login-btn { width: 100%; margin-top: 6px; }
+  .erro { color: #c97070; font-size: 13px; margin-bottom: 10px; }
+  .quem { color: #8b9299; font-size: 13px; align-self: center; padding: 0 4px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
