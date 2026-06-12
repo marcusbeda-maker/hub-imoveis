@@ -78,6 +78,7 @@ export default function HubImoveis() {
   const [filtro, setFiltro] = useState("todos");
   const [enviando, setEnviando] = useState(false);
   const [toast, setToast] = useState("");
+  const [galeria, setGaleria] = useState(null); // { fotos, idx, titulo }
 
   useEffect(() => {
     const q = query(collection(db, COL), orderBy("criadoEm", "desc"));
@@ -281,13 +282,23 @@ export default function HubImoveis() {
           <div className="cards">
             {lista.map((im) => (
               <article key={im.id} className="card imovel">
-                <div className="foto">
+                <div
+                  className="foto"
+                  onClick={() =>
+                    im.fotos?.length &&
+                    setGaleria({ fotos: im.fotos, idx: 0, titulo: im.titulo })
+                  }
+                  style={{ cursor: im.fotos?.length ? "pointer" : "default" }}
+                >
                   {im.fotos?.[0]
                     ? <img src={im.fotos[0]} alt={im.titulo} />
                     : <div className="semfoto">{im.tipo}</div>}
                   <span className="badge" style={{ background: STATUS[im.status]?.cor }}>
                     {STATUS[im.status]?.label}
                   </span>
+                  {im.fotos?.length > 1 && (
+                    <span className="badge-fotos">📷 {im.fotos.length}</span>
+                  )}
                 </div>
                 <div className="info">
                   <h3>{im.titulo}</h3>
@@ -312,6 +323,34 @@ export default function HubImoveis() {
             ))}
           </div>
         </section>
+      )}
+      {galeria && (
+        <div className="galeria" onClick={() => setGaleria(null)}>
+          <button className="g-fechar" onClick={() => setGaleria(null)}>×</button>
+          <button
+            className="g-seta esq"
+            onClick={(e) => {
+              e.stopPropagation();
+              setGaleria((g) => ({ ...g, idx: (g.idx - 1 + g.fotos.length) % g.fotos.length }));
+            }}
+          >‹</button>
+          <img
+            src={galeria.fotos[galeria.idx]}
+            alt={galeria.titulo}
+            onClick={(e) => {
+              e.stopPropagation();
+              setGaleria((g) => ({ ...g, idx: (g.idx + 1) % g.fotos.length }));
+            }}
+          />
+          <button
+            className="g-seta dir"
+            onClick={(e) => {
+              e.stopPropagation();
+              setGaleria((g) => ({ ...g, idx: (g.idx + 1) % g.fotos.length }));
+            }}
+          >›</button>
+          <div className="g-info">{galeria.titulo} · {galeria.idx + 1}/{galeria.fotos.length}</div>
+        </div>
       )}
     </div>
   );
@@ -365,4 +404,12 @@ const css = `
   button.perigo { color: #c97070 !important; }
   .vazio { text-align: center; color: #8b9299; padding: 60px 0; }
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #d9a440; color: #14171a; font-weight: 600; padding: 12px 20px; border-radius: 10px; z-index: 10; }
+  .badge-fotos { position: absolute; bottom: 10px; right: 10px; background: #14171acc; color: #e8e4dc; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
+  .galeria { position: fixed; inset: 0; background: rgba(10,12,14,.96); display: flex; align-items: center; justify-content: center; z-index: 50; }
+  .galeria img { max-width: 92vw; max-height: 82vh; object-fit: contain; border-radius: 8px; cursor: pointer; }
+  .g-seta { position: fixed; top: 50%; transform: translateY(-50%); background: #1d2226cc; border: 1px solid #2a2f34; color: #e8e4dc; font-size: 32px; line-height: 1; width: 52px; height: 52px; border-radius: 50%; cursor: pointer; z-index: 51; }
+  .g-seta.esq { left: 12px; }
+  .g-seta.dir { right: 12px; }
+  .g-fechar { position: fixed; top: 14px; right: 14px; background: #1d2226cc; border: 1px solid #2a2f34; color: #e8e4dc; font-size: 26px; line-height: 1; width: 44px; height: 44px; border-radius: 50%; cursor: pointer; z-index: 51; }
+  .g-info { position: fixed; bottom: 18px; left: 50%; transform: translateX(-50%); background: #1d2226cc; color: #e8e4dc; font-size: 14px; padding: 8px 18px; border-radius: 20px; max-width: 90vw; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 `;
