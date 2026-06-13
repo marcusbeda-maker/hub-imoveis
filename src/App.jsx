@@ -240,6 +240,26 @@ export default function HubImoveis() {
     avisar("Ficha completa copiada — pronta para o WhatsApp");
   }
 
+  async function baixarFoto(url, titulo, idx) {
+    try {
+      const resp = await fetch(url);
+      const blob = await resp.blob();
+      const link = document.createElement("a");
+      const nome = (titulo || "imovel").replace(/[^a-z0-9]/gi, "-").toLowerCase();
+      link.href = URL.createObjectURL(blob);
+      link.download = `${nome}-${idx + 1}.jpg`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(link.href);
+      avisar("Foto baixada");
+    } catch {
+      // fallback: abre em nova aba para salvar manualmente
+      window.open(url, "_blank");
+      avisar("Toque e segure na foto para salvar");
+    }
+  }
+
   async function publicar(im) {
     setEnviando(true);
     try {
@@ -412,6 +432,7 @@ export default function HubImoveis() {
                       im.vagas && `${im.vagas}v`, im.area && `${im.area}m²`,
                       im.areaLote && `lote ${im.areaLote}m²`].filter(Boolean).join(" · ")}
                   </p>
+                  {im.descricao && <p className="descricao-card">{im.descricao}</p>}
                   {im.publicadoEm && <p className="pub">Publicado {new Date(im.publicadoEm).toLocaleDateString("pt-BR")}</p>}
                   <div className="botoes">
                     {papel === "admin" && (
@@ -459,6 +480,13 @@ export default function HubImoveis() {
             }}
           >›</button>
           <div className="g-info">{galeria.titulo} · {galeria.idx + 1}/{galeria.fotos.length}</div>
+          <button
+            className="g-download"
+            onClick={(e) => {
+              e.stopPropagation();
+              baixarFoto(galeria.fotos[galeria.idx], galeria.titulo, galeria.idx);
+            }}
+          >⬇ Baixar foto</button>
         </div>
       )}
     </div>
@@ -529,4 +557,6 @@ const css = `
   .login-btn { width: 100%; margin-top: 6px; }
   .erro { color: #c97070; font-size: 13px; margin-bottom: 10px; }
   .quem { color: #8b9299; font-size: 13px; align-self: center; padding: 0 4px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .descricao-card { font-size: 13px; color: #a8aeb4; line-height: 1.5; margin: 6px 0 2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+  .g-download { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: #d9a440; color: #14171a; font-weight: 600; font-size: 14px; border: 0; padding: 10px 20px; border-radius: 20px; cursor: pointer; z-index: 52; }
 `;
