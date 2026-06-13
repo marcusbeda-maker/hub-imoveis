@@ -12,7 +12,7 @@ import {
    CONFIGURAÇÃO — preencha LOCALMENTE no seu PC, nunca cole em chats
    ================================================================ */
 const firebaseConfig = {
-  apiKey: "AIzaSyCGv94pkCGguMbrpJ8IHn7A8GdT6LcnrPo",
+  apiKey: "AIzaSyCGv94pkCGguMbrpJ8IHn7A8GdT6lcnrPo",
   authDomain: "contas-marcus.firebaseapp.com",
   projectId: "contas-marcus",
   storageBucket: "contas-marcus.firebasestorage.app",
