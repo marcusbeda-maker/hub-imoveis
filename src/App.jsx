@@ -150,6 +150,7 @@ export default function HubImoveis() {
   const [enviando, setEnviando] = useState(false);
   const [toast, setToast] = useState("");
   const [galeria, setGaleria] = useState(null); // { fotos, idx, titulo }
+  const [postImovel, setPostImovel] = useState(null); // imóvel selecionado para "Preparar post"
   const [user, setUser] = useState(null);
   const [authPronto, setAuthPronto] = useState(false);
 
@@ -238,6 +239,39 @@ export default function HubImoveis() {
   function copiarFicha(im) {
     navigator.clipboard.writeText(gerarFicha(im));
     avisar("Ficha completa copiada — pronta para o WhatsApp");
+  }
+
+  async function baixarTodasFotos(im) {
+    if (!im.fotos?.length) { avisar("Este imóvel não tem fotos."); return; }
+    avisar(`Baixando ${im.fotos.length} foto(s)...`);
+    for (let i = 0; i < im.fotos.length; i++) {
+      await baixarFoto(im.fotos[i], im.titulo, i);
+      await new Promise((r) => setTimeout(r, 400));
+    }
+  }
+
+  function abrirInstagram(im) {
+    navigator.clipboard.writeText(gerarAnuncio(im));
+    avisar("Legenda copiada! Abrindo o Instagram — cole a legenda e escolha as fotos baixadas.");
+    window.open("https://www.instagram.com/", "_blank");
+  }
+
+  function abrirFacebook(im) {
+    navigator.clipboard.writeText(gerarAnuncio(im));
+    avisar("Legenda copiada! Abrindo o Facebook — cole no campo do post.");
+    window.open("https://www.facebook.com/", "_blank");
+  }
+
+  function abrirOLX(im) {
+    navigator.clipboard.writeText(gerarFicha(im));
+    avisar("Ficha copiada! Abrindo a OLX para anunciar.");
+    window.open("https://www.olx.com.br/imoveis/publicar", "_blank");
+  }
+
+  function abrirWhatsApp(im) {
+    const texto = encodeURIComponent(gerarFicha(im));
+    window.open(`https://wa.me/?text=${texto}`, "_blank");
+    avisar("Abrindo o WhatsApp com a ficha pronta para enviar.");
   }
 
   async function baixarFoto(url, titulo, idx) {
@@ -436,7 +470,7 @@ export default function HubImoveis() {
                   {im.publicadoEm && <p className="pub">Publicado {new Date(im.publicadoEm).toLocaleDateString("pt-BR")}</p>}
                   <div className="botoes">
                     {papel === "admin" && (
-                      <button className="primario" onClick={() => publicar(im)} disabled={enviando}>Publicar</button>
+                      <button className="primario" onClick={() => setPostImovel(im)}>Preparar post</button>
                     )}
                     <button onClick={() => copiarAnuncio(im)}>Copiar anúncio</button>
                     <button onClick={() => copiarFicha(im)}>Copiar ficha</button>
@@ -454,6 +488,41 @@ export default function HubImoveis() {
           </div>
         </section>
       )}
+      {postImovel && (
+        <div className="galeria" onClick={() => setPostImovel(null)}>
+          <div className="post-painel" onClick={(e) => e.stopPropagation()}>
+            <button className="g-fechar" onClick={() => setPostImovel(null)}>×</button>
+            <h2>Preparar post</h2>
+            <p className="post-titulo">{postImovel.titulo}</p>
+
+            <div className="post-passo">
+              <span className="post-num">1</span>
+              <div>
+                <strong>Baixe as fotos</strong>
+                <p>Salva as {postImovel.fotos?.length || 0} fotos no seu aparelho para usar no post.</p>
+                <button onClick={() => baixarTodasFotos(postImovel)}>⬇ Baixar todas as fotos</button>
+              </div>
+            </div>
+
+            <div className="post-passo">
+              <span className="post-num">2</span>
+              <div>
+                <strong>Escolha onde publicar</strong>
+                <p>A legenda é copiada automaticamente. É só colar no app que abrir.</p>
+                <div className="post-redes">
+                  <button className="rede ig" onClick={() => abrirInstagram(postImovel)}>Instagram</button>
+                  <button className="rede fb" onClick={() => abrirFacebook(postImovel)}>Facebook</button>
+                  <button className="rede olx" onClick={() => abrirOLX(postImovel)}>OLX</button>
+                  <button className="rede wa" onClick={() => abrirWhatsApp(postImovel)}>WhatsApp</button>
+                </div>
+              </div>
+            </div>
+
+            <p className="post-dica">💡 No Instagram, poste pelo app do celular: abra o Hub no celular, baixe as fotos e use o botão Instagram.</p>
+          </div>
+        </div>
+      )}
+
       {galeria && (
         <div className="galeria" onClick={() => setGaleria(null)}>
           <button className="g-fechar" onClick={() => setGaleria(null)}>×</button>
@@ -559,4 +628,19 @@ const css = `
   .quem { color: #8b9299; font-size: 13px; align-self: center; padding: 0 4px; max-width: 160px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .descricao-card { font-size: 13px; color: #a8aeb4; line-height: 1.5; margin: 6px 0 2px; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
   .g-download { position: fixed; bottom: 60px; left: 50%; transform: translateX(-50%); background: #d9a440; color: #14171a; font-weight: 600; font-size: 14px; border: 0; padding: 10px 20px; border-radius: 20px; cursor: pointer; z-index: 52; }
+  .post-painel { background: #1d2226; border: 1px solid #2a2f34; border-radius: 16px; padding: 28px; max-width: 460px; width: 92vw; max-height: 88vh; overflow-y: auto; position: relative; }
+  .post-painel h2 { font-family: Archivo, sans-serif; font-size: 20px; color: #d9a440; margin-bottom: 4px; }
+  .post-titulo { color: #c8cdd2; font-size: 14px; margin-bottom: 20px; }
+  .post-passo { display: flex; gap: 14px; margin-bottom: 22px; }
+  .post-num { flex-shrink: 0; width: 28px; height: 28px; border-radius: 50%; background: #d9a440; color: #14171a; font-weight: 700; display: flex; align-items: center; justify-content: center; }
+  .post-passo strong { display: block; margin-bottom: 4px; font-size: 15px; }
+  .post-passo p { color: #8b9299; font-size: 13px; margin-bottom: 10px; line-height: 1.4; }
+  .post-passo > div > button { background: #14171a; border: 1px solid #2a2f34; color: #e8e4dc; padding: 10px 16px; border-radius: 8px; cursor: pointer; font-size: 14px; }
+  .post-redes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .post-redes .rede { color: #fff; border: 0; padding: 12px; border-radius: 8px; cursor: pointer; font-weight: 600; font-size: 14px; }
+  .rede.ig { background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366); }
+  .rede.fb { background: #1877f2; }
+  .rede.olx { background: #6e0ad6; }
+  .rede.wa { background: #25d366; color: #14171a; }
+  .post-dica { font-size: 12px; color: #8b9299; background: #14171a; padding: 10px 12px; border-radius: 8px; line-height: 1.4; margin-top: 6px; }
 `;
