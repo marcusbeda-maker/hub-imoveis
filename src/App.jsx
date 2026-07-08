@@ -357,7 +357,9 @@ export default function HubImoveis() {
   async function carregarSite() {
     setSiteCarregando(true); setSiteErro("");
     try {
-      const url = syncUrl_("notion-imoveis");
+      const url = isLocalhost
+        ? `${SYNC_API_URL}/notion-imoveis`
+        : `/api/imoveis-site`;
       const r = await fetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();

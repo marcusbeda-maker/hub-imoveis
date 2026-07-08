@@ -1,10 +1,8 @@
-export const config = { runtime: "edge" };
-
 const VPS = "http://179.197.64.167:5999";
 
-export default async function handler(req) {
-  const url = new URL(req.url);
-  const rota = url.searchParams.get("rota") || "status";
+export default async function handler(req, res) {
+  res.setHeader("Access-Control-Allow-Origin", "*");
+  const rota = req.query.rota || "status";
   const GET_ROTAS = ["status", "notion-imoveis"];
   const method = GET_ROTAS.includes(rota) ? "GET" : "POST";
 
@@ -14,17 +12,8 @@ export default async function handler(req) {
       headers: { "Content-Type": "application/json" },
     });
     const data = await resp.json();
-    return new Response(JSON.stringify(data), {
-      status: resp.status,
-      headers: {
-        "Content-Type": "application/json",
-        "Access-Control-Allow-Origin": "*",
-      },
-    });
+    res.status(resp.status).json(data);
   } catch (e) {
-    return new Response(JSON.stringify({ erro: e.message }), {
-      status: 502,
-      headers: { "Content-Type": "application/json" },
-    });
+    res.status(502).json({ erro: e.message });
   }
 }
