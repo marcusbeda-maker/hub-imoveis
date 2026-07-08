@@ -8,9 +8,6 @@ import {
   getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged
 } from "firebase/auth";
 
-/* ================================================================
-   CONFIGURAÇÃO — preencha LOCALMENTE no seu PC, nunca cole em chats
-   ================================================================ */
 const firebaseConfig = {
   apiKey: "AIzaSyCGv94pkCGguMbrpJ8IHn7A8GdT6lcnrPo",
   authDomain: "contas-marcus.firebaseapp.com",
@@ -26,17 +23,16 @@ const CLOUDINARY = {
 };
 
 const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/publicar-imovel";
+const SYNC_API_URL = "http://localhost:5999";
+const SYNC_API_VPS = "http://179.197.64.167:5999";
 const WHATSAPP_NEGOCIOS = "(62) 9XXXX-XXXX";
 
-// E-mails com acesso TOTAL (excluir, publicar). Os demais usuários
-// criados no Console Firebase > Authentication entram como corretores.
 const ADMINS = ["marcusbeda@gmail.com"];
-/* ================================================================ */
 
 const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
-const COL = "imoveis"; // coleção separada — não interfere em Contas/Vendas
+const COL = "imoveis";
 
 const TIPOS = ["Casa", "Apartamento", "Lote", "Sobrado", "Comercial", "Rural"];
 const OPERACOES = ["Venda", "Aluguel"];
@@ -149,8 +145,8 @@ export default function HubImoveis() {
   const [filtro, setFiltro] = useState("todos");
   const [enviando, setEnviando] = useState(false);
   const [toast, setToast] = useState("");
-  const [galeria, setGaleria] = useState(null); // { fotos, idx, titulo }
-  const [postImovel, setPostImovel] = useState(null); // imóvel selecionado para "Preparar post"
+  const [galeria, setGaleria] = useState(null);
+  const [postImovel, setPostImovel] = useState(null);
   const [user, setUser] = useState(null);
   const [authPronto, setAuthPronto] = useState(false);
 
@@ -251,9 +247,22 @@ export default function HubImoveis() {
   }
 
   function abrirInstagram(im) {
-    navigator.clipboard.writeText(gerarAnuncio(im));
-    avisar("Legenda copiada! Abrindo o Instagram — cole a legenda e escolha as fotos baixadas.");
-    window.open("https://www.instagram.com/", "_blank");
+    const params = new URLSearchParams({
+      titulo: im.titulo || '',
+      tipo: im.tipo || '',
+      bairro: (im.bairro ? im.bairro + (im.cidade ? ', ' + im.cidade : '') : im.cidade) || '',
+      preco: im.preco || '',
+      quartos: im.quartos || '',
+      banheiros: im.banheiros || '',
+      vagas: im.vagas || '',
+      area: im.area || '',
+      areaLote: im.areaLote || '',
+      descricao: im.descricao || '',
+      fotos: JSON.stringify(im.fotos || []),
+      origem: 'hub'
+    });
+    window.open(`https://marcusbeda-ig-v3.vercel.app/?${params.toString()}`, '_blank');
+    avisar("Abrindo o Gerador com os dados do imóvel...");
   }
 
   function abrirFacebook(im) {
@@ -288,7 +297,6 @@ export default function HubImoveis() {
       URL.revokeObjectURL(link.href);
       avisar("Foto baixada");
     } catch {
-      // fallback: abre em nova aba para salvar manualmente
       window.open(url, "_blank");
       avisar("Toque e segure na foto para salvar");
     }
@@ -310,6 +318,192 @@ export default function HubImoveis() {
     } finally {
       setEnviando(false);
     }
+  }
+
+  // ── Config Sync URL ─────────────────────────────────────────────
+  const [syncUrl, setSyncUrl] = useState(() => {
+    if (window.location.hostname === "localhost") return SYNC_API_URL;
+    return localStorage.getItem("syncApiUrl") || SYNC_API_VPS;
+  });
+  const [editandoUrl, setEditandoUrl] = useState(false);
+  const [urlTemp, setUrlTemp] = useState("");
+
+  function salvarSyncUrl(url) {
+    const limpa = url.replace(/\/$/, "");
+    localStorage.setItem("syncApiUrl", limpa);
+    setSyncUrl(limpa);
+    setEditandoUrl(false);
+    avisar("URL salva!");
+  }
+
+  const isLocalhost = window.location.hostname === "localhost";
+  const syncApiAtivo = isLocalhost ? SYNC_API_URL : syncUrl;
+  const syncUrl_ = (rota) => isLocalhost
+    ? `${SYNC_API_URL}/${rota}`
+    : `/api/sync-proxy?rota=${rota}`;
+
+  // ── Imóveis Site (Notion) ────────────────────────────────────────
+  const [imoveisSite, setImoveisSite] = useState([]);
+  const [siteCarregando, setSiteCarregando] = useState(false);
+  const [siteErro, setSiteErro] = useState("");
+  const [siteDetalhe, setSiteDetalhe] = useState(null);
+
+  useEffect(() => {
+    if (aba !== "site") return;
+    if (imoveisSite.length > 0) return;
+    carregarSite();
+  }, [aba]);
+
+  async function carregarSite() {
+    setSiteCarregando(true); setSiteErro("");
+    try {
+      const url = syncUrl_("notion-imoveis");
+      const r = await fetch(url);
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const d = await r.json();
+      if (d.erro) throw new Error(d.erro);
+      setImoveisSite(d.imoveis || []);
+    } catch (e) {
+      setSiteErro(e.message);
+    } finally {
+      setSiteCarregando(false);
+    }
+  }
+
+  function fmtValor(v) {
+    if (!v) return "—";
+    return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
+  }
+
+  function compartilharInstagram(im) {
+    const params = new URLSearchParams({
+      titulo: im.nome, tipo: im.tipo, bairro: [im.bairro, im.cidade].filter(Boolean).join(", "),
+      preco: im.valor || "", quartos: im.quartos || "", banheiros: im.banheiros || "",
+      vagas: im.vagas || "", area: im.area || "", descricao: im.observacoes || "",
+      fotos: JSON.stringify(im.fotos || []), origem: "hub-site",
+    });
+    window.open(`https://marcusbeda-ig-v3.vercel.app/?${params}`, "_blank");
+  }
+
+  function compartilharFacebook(im) {
+    const texto = gerarAnuncioSite(im);
+    navigator.clipboard.writeText(texto);
+    avisar("Legenda copiada! Abrindo Facebook...");
+    window.open("https://www.facebook.com/", "_blank");
+  }
+
+  function gerarAnuncioSite(im) {
+    const specs = [
+      im.quartos && `${im.quartos} quartos`,
+      im.banheiros && `${im.banheiros} banheiros`,
+      im.vagas && `${im.vagas} vagas`,
+      im.area && `${im.area}m²`,
+    ].filter(Boolean).join(" · ");
+    return [
+      `🏡 ${im.nome}`,
+      `📍 ${[im.bairro, im.cidade].filter(Boolean).join(" — ")}`,
+      specs && `✨ ${specs}`,
+      `💰 ${im.finalidade}: ${fmtValor(im.valor)}`,
+      im.observacoes && `\n${im.observacoes}`,
+      `\n📲 Agende sua visita: ${WHATSAPP_NEGOCIOS}`,
+      `Marcus Beda — EMCAZA Imóveis · CRECI 23.152`,
+    ].filter(Boolean).join("\n");
+  }
+
+  function gerarPDF(im) {
+    const fotos = im.fotos || [];
+    const fotosHtml = fotos.map(u =>
+      `<img src="${u}" style="width:48%;margin:4px;border-radius:6px;object-fit:cover;height:160px;" />`
+    ).join("");
+    const specs = [
+      im.tipo, im.finalidade,
+      im.quartos && `${im.quartos} quartos`,
+      im.suites && `${im.suites} suítes`,
+      im.banheiros && `${im.banheiros} banheiros`,
+      im.vagas && `${im.vagas} vagas`,
+      im.area && `${im.area} m² construídos`,
+      im.areaTotal && `Lote ${im.areaTotal} m²`,
+    ].filter(Boolean).join("  ·  ");
+    const blob = new Blob([`<!DOCTYPE html><html><head><meta charset="UTF-8">
+    <title></title>
+    <style>
+      body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;padding:0 20px;color:#222}
+      h1{color:#1a1a2e;font-size:22px;margin-bottom:4px}
+      .valor{font-size:26px;color:#b07000;font-weight:700;margin:8px 0}
+      .local{color:#555;font-size:14px;margin-bottom:12px}
+      .specs{background:#f5f5f5;padding:10px 14px;border-radius:6px;font-size:13px;color:#444;margin-bottom:14px}
+      .desc{font-size:14px;line-height:1.7;margin-bottom:16px}
+      .fotos{display:flex;flex-wrap:wrap;gap:4px}
+      .rodape{margin-top:20px;font-size:12px;color:#888;border-top:1px solid #ddd;padding-top:10px}
+      @media print{body{margin:10px}button{display:none}}
+    </style></head><body>
+    <button onclick="window.print()" style="background:#b07000;color:#fff;border:0;padding:10px 20px;border-radius:6px;cursor:pointer;margin-bottom:20px;font-size:14px">&#8595; Salvar / Imprimir PDF</button>
+    <h1>${im.nome.replace(/[<>]/g, "")}</h1>
+    <p class="local">&#128205; ${[im.bairro, im.cidade, im.cep].filter(Boolean).map(s => s.replace(/[<>]/g, "")).join(" · ")}</p>
+    <p class="valor">${fmtValor(im.valor)}</p>
+    <p class="specs">${specs.replace(/[<>]/g, "")}</p>
+    ${im.observacoes ? `<p class="desc">${im.observacoes.replace(/[<>]/g, "")}</p>` : ""}
+    ${fotos.length ? `<div class="fotos">${fotosHtml}</div>` : ""}
+    <div class="rodape">Marcus Beda — EMCAZA Imóveis · CRECI 23.152 · (62) 98116-2705</div>
+    </body></html>`], { type: "text/html" });
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    setTimeout(() => URL.revokeObjectURL(url), 30000);
+  }
+
+  // ── Sincronizar Notion ───────────────────────────────────────────
+  const [syncStatus, setSyncStatus] = useState(null);
+  const [syncRodando, setSyncRodando] = useState(false);
+  const [syncLog, setSyncLog] = useState(false);
+
+  useEffect(() => {
+    if (aba !== "sync") return;
+    buscarStatus();
+    const id = setInterval(buscarStatus, 4000);
+    return () => clearInterval(id);
+  }, [aba]);
+
+  async function buscarStatus() {
+    try {
+      const r = await fetch(syncUrl_("status"));
+      if (!r.ok) throw new Error();
+      const d = await r.json();
+      setSyncStatus(d);
+      setSyncRodando(d.rodando);
+    } catch {
+      setSyncStatus(null);
+    }
+  }
+
+  async function iniciarSync() {
+    if (syncRodando) return;
+    setSyncRodando(true);
+    try {
+      await fetch(syncUrl_("sync"), { method: "POST" });
+      avisar("Sincronização iniciada! Aguarde...");
+    } catch {
+      avisar("Erro ao conectar com o servidor de sync.");
+      setSyncRodando(false);
+    }
+  }
+
+  async function toggleAgendamento() {
+    if (!syncStatus) return;
+    const rota = syncStatus.agendado ? "cancelar-agendamento" : "agendar";
+    try {
+      const r = await fetch(syncUrl_(rota), { method: "POST" });
+      const d = await r.json();
+      setSyncStatus((s) => ({ ...s, agendado: d.agendado }));
+      avisar(d.agendado ? "Sync diário ativado (06:00)" : "Agendamento cancelado");
+    } catch {
+      avisar("Erro: sync_api.py não está rodando");
+    }
+  }
+
+  function fmtData(iso) {
+    if (!iso) return "Nunca";
+    const d = new Date(iso);
+    return d.toLocaleDateString("pt-BR") + " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
   const lista = imoveis.filter((im) => filtro === "todos" || im.status === filtro);
@@ -341,6 +535,12 @@ export default function HubImoveis() {
           <button className={aba === "form" ? "ativo" : ""}
             onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); }}>
             + Novo imóvel
+          </button>
+          <button className={aba === "site" ? "ativo" : ""} onClick={() => setAba("site")}>
+            Imóveis Site
+          </button>
+          <button className={aba === "sync" ? "ativo" : ""} onClick={() => setAba("sync")}>
+            🔄 Notion Sync
           </button>
           <span className="quem" title={user.email}>
             {user.email.split("@")[0]}{papel === "admin" ? " · admin" : ""}
@@ -433,7 +633,7 @@ export default function HubImoveis() {
           </div>
 
           {lista.length === 0 && (
-            <div className="vazio">Nenhum imóvel aqui ainda. Cadastre o primeiro em “+ Novo imóvel”.</div>
+            <div className="vazio">Nenhum imóvel aqui ainda. Cadastre o primeiro em "+ Novo imóvel".</div>
           )}
 
           <div className="cards">
@@ -488,6 +688,99 @@ export default function HubImoveis() {
           </div>
         </section>
       )}
+
+      {aba === "site" && (
+        <section>
+          <div className="site-topo">
+            <span className="site-total">{imoveisSite.length} imóveis no Notion</span>
+            <button onClick={carregarSite} disabled={siteCarregando}>
+              {siteCarregando ? "Carregando..." : "↻ Recarregar"}
+            </button>
+          </div>
+
+          {siteErro && <div className="site-erro">Erro: {siteErro} — configure NOTION_TOKEN no Vercel.</div>}
+
+          {!siteErro && imoveisSite.length === 0 && !siteCarregando && (
+            <div className="vazio">Nenhum imóvel carregado. Faça deploy no Vercel e configure NOTION_TOKEN.</div>
+          )}
+
+          <div className="cards">
+            {imoveisSite.map((im) => (
+              <article key={im.id} className="card imovel">
+                <div className="foto" onClick={() => im.fotos?.length && setGaleria({ fotos: im.fotos, idx: 0, titulo: im.nome })}
+                  style={{ cursor: im.fotos?.length ? "pointer" : "default" }}>
+                  {im.capa
+                    ? <img src={im.capa} alt={im.nome} />
+                    : <div className="semfoto">{im.tipo}</div>}
+                  <span className="badge" style={{ background: im.status === "Disponível" ? "#2e7d52" : im.status === "Vendido" ? "#8a3a3a" : "#b07c2a" }}>
+                    {im.status}
+                  </span>
+                  {im.fotos?.length > 1 && <span className="badge-fotos">📷 {im.fotos.length}</span>}
+                </div>
+                <div className="info">
+                  <h3>{im.nome}</h3>
+                  <p className="local">{im.bairro}{im.bairro && " · "}{im.cidade}</p>
+                  <p className="preco">{fmtValor(im.valor)}{im.finalidade === "Locação" && <small>/mês</small>}</p>
+                  <p className="specs">
+                    {[im.quartos && `${im.quartos}q`, im.banheiros && `${im.banheiros}b`,
+                      im.vagas && `${im.vagas}v`, im.area && `${im.area}m²`].filter(Boolean).join(" · ")}
+                  </p>
+                  <div className="botoes">
+                    <button className="pdf-btn" onClick={() => gerarPDF(im)}>📄 PDF</button>
+                    <button className="rede ig" onClick={() => compartilharInstagram(im)}>📸 Instagram</button>
+                    <button className="rede fb" onClick={() => compartilharFacebook(im)}>👍 Facebook</button>
+                    {im.link && <a href={im.link} target="_blank" rel="noreferrer" className="site-link">Ver site</a>}
+                  </div>
+                </div>
+              </article>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {aba === "sync" && (
+        <section className="sync-centro">
+          <button
+            className={`sync-grande${syncRodando ? " rodando" : ""}`}
+            onClick={iniciarSync}
+            disabled={syncRodando}
+          >
+            {syncRodando ? "⏳ Atualizando..." : "🔄 Atualizar Notion"}
+          </button>
+          {syncStatus?.ultima_sync && !syncRodando && (
+            <p className="sync-ultima-info">Última atualização: {fmtData(syncStatus.ultima_sync)}</p>
+          )}
+
+          {window.location.hostname !== "localhost" && (
+            <div className="sync-vpn">
+              {!editandoUrl ? (
+                <>
+                  <p className="sync-vpn-label">
+                    {syncApiAtivo ? `✅ VPN: ${syncApiAtivo}` : "⚠️ IP da VPN não configurado"}
+                  </p>
+                  <button className="sync-vpn-btn" onClick={() => { setUrlTemp(syncApiAtivo); setEditandoUrl(true); }}>
+                    ⚙️ {syncApiAtivo ? "Alterar IP" : "Configurar IP da VPN"}
+                  </button>
+                </>
+              ) : (
+                <div className="sync-vpn-form">
+                  <p className="sync-vpn-label">IP do PC na VPN (ex: http://10.8.0.2:5999)</p>
+                  <input
+                    value={urlTemp}
+                    onChange={(e) => setUrlTemp(e.target.value)}
+                    placeholder="http://10.8.0.2:5999"
+                  />
+                  <div style={{display:"flex",gap:"8px",marginTop:"8px"}}>
+                    <button className="primario" onClick={() => salvarSyncUrl(urlTemp)}>Salvar</button>
+                    <button onClick={() => setEditandoUrl(false)}>Cancelar</button>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </section>
+      )}
+
       {postImovel && (
         <div className="galeria" onClick={() => setPostImovel(null)}>
           <div className="post-painel" onClick={(e) => e.stopPropagation()}>
@@ -515,6 +808,15 @@ export default function HubImoveis() {
                   <button className="rede olx" onClick={() => abrirOLX(postImovel)}>OLX</button>
                   <button className="rede wa" onClick={() => abrirWhatsApp(postImovel)}>WhatsApp</button>
                 </div>
+              </div>
+            </div>
+
+            <div className="post-passo">
+              <span className="post-num">3</span>
+              <div>
+                <strong>Gerar com IA</strong>
+                <p>Abre o Gerador já preenchido com os dados deste imóvel. Selecione as fotos que quer usar no post.</p>
+                <button onClick={() => abrirInstagram(postImovel)} style={{background:"linear-gradient(135deg,#c9a96e,#a07030)",color:"#000",fontWeight:700,border:0,padding:"10px 16px",borderRadius:"8px",cursor:"pointer",fontSize:"14px"}}>✨ Gerar com IA</button>
               </div>
             </div>
 
@@ -643,4 +945,43 @@ const css = `
   .rede.olx { background: #6e0ad6; }
   .rede.wa { background: #25d366; color: #14171a; }
   .post-dica { font-size: 12px; color: #8b9299; background: #14171a; padding: 10px 12px; border-radius: 8px; line-height: 1.4; margin-top: 6px; }
+
+  /* ── Imóveis Site ── */
+  .site-topo { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; }
+  .site-total { color: #8b9299; font-size: 14px; }
+  .site-erro { background: #1d1010; border: 1px solid #7d2e2e; border-radius: 8px; padding: 14px; color: #cf9090; font-size: 13px; margin-bottom: 16px; }
+  .site-link { background: linear-gradient(135deg,#23282e,#1a1e22); border: 1px solid #3a4048; color: #9aa0a8; padding: 7px 10px; border-radius: 8px; font-size: 13px; text-decoration: none; display:inline-block; }
+
+  /* Botões cromo metálico */
+  .botoes .pdf-btn {
+    background: linear-gradient(160deg,#e8e0d0 0%,#c9b88a 40%,#d9a440 60%,#b8881e 100%);
+    color: #1a1200; border: 0; padding: 7px 12px; border-radius: 8px; cursor: pointer;
+    font-weight: 700; font-size: 13px; letter-spacing:.3px;
+    box-shadow: 0 2px 8px #d9a44055, inset 0 1px 0 #ffffffaa;
+    text-shadow: 0 1px 0 #fff8;
+  }
+  .botoes .pdf-btn:hover { filter: brightness(1.1); }
+
+  .botoes .rede { border: 0; padding: 7px 12px; border-radius: 8px; cursor: pointer; font-weight: 700; font-size: 13px; letter-spacing:.3px; box-shadow: inset 0 1px 0 #ffffff33, 0 2px 6px #0006; }
+  .botoes .ig {
+    background: linear-gradient(135deg,#f9ce34,#ee2a7b,#6228d7);
+    color: #fff; text-shadow: 0 1px 2px #0005;
+  }
+  .botoes .ig:hover { filter: brightness(1.15); }
+  .botoes .fb {
+    background: linear-gradient(160deg,#4a90e2 0%,#1877f2 50%,#0d5bbf 100%);
+    color: #fff; text-shadow: 0 1px 2px #0005;
+  }
+  .botoes .fb:hover { filter: brightness(1.12); }
+  /* ── Sync ── */
+  .sync-centro { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 16px; }
+  .sync-grande { background: #d9a440; color: #14171a; border: 0; font-family: Archivo, sans-serif; font-weight: 800; font-size: 20px; padding: 20px 48px; border-radius: 14px; cursor: pointer; letter-spacing: 1px; transition: opacity .2s; }
+  .sync-grande:hover { opacity: .88; }
+  .sync-grande.rodando { opacity: .6; cursor: not-allowed; }
+  .sync-ultima-info { color: #8b9299; font-size: 13px; }
+  .sync-vpn { margin-top: 24px; text-align: center; }
+  .sync-vpn-label { color: #8b9299; font-size: 13px; margin-bottom: 8px; }
+  .sync-vpn-btn { background: #1d2226; border: 1px solid #2a2f34; color: #c8cdd2; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; }
+  .sync-vpn-form { background: #1d2226; border: 1px solid #2a2f34; border-radius: 10px; padding: 16px; max-width: 320px; }
+  .sync-vpn-form input { width: 100%; margin-top: 6px; }
 `;
