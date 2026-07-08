@@ -5,7 +5,8 @@ const VPS = "http://179.197.64.167:5999";
 export default async function handler(req) {
   const url = new URL(req.url);
   const rota = url.searchParams.get("rota") || "status";
-  const method = rota === "status" ? "GET" : "POST";
+  const GET_ROTAS = ["status", "notion-imoveis"];
+  const method = GET_ROTAS.includes(rota) ? "GET" : "POST";
 
   try {
     const resp = await fetch(`${VPS}/${rota}`, {
