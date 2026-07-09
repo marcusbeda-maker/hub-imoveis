@@ -8,9 +8,10 @@ export default async function handler(req, res) {
 
   try {
     const resp = await fetch(`${VPS}/${rota}`, {
-      method,
-      headers: { "Content-Type": "application/json" },
-    });
+  method,
+  headers: { "Content-Type": "application/json" },
+  body: method === "POST" ? JSON.stringify(req.body) : undefined,
+});
     const data = await resp.json();
     res.status(resp.status).json(data);
   } catch (e) {
