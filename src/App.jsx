@@ -388,12 +388,16 @@ export default function HubImoveis() {
   }
 
   function compartilharFacebook(im) {
-    const texto = gerarAnuncioSite(im);
-    navigator.clipboard.writeText(texto);
-    avisar("Legenda copiada! Abrindo Facebook...");
-    window.open("https://www.facebook.com/", "_blank");
-  }
-
+  const texto = gerarAnuncioSite(im);
+  navigator.clipboard.writeText(texto);
+  avisar("Legenda copiada! Abrindo janela de compartilhamento...");
+  const url = im.link || "https://hub-imoveis.vercel.app";
+  window.open(
+    `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`,
+    "facebook-share",
+    "width=580,height=520"
+  );
+}
   function gerarAnuncioSite(im) {
     const specs = [
       im.quartos && `${im.quartos} quartos`,
