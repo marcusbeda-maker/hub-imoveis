@@ -916,7 +916,7 @@ const css = `
   .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #d9a440; color: #14171a; font-weight: 600; padding: 12px 20px; border-radius: 10px; z-index: 10; }
   .badge-fotos { position: absolute; bottom: 10px; right: 10px; background: #14171acc; color: #e8e4dc; font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 20px; }
   .galeria { position: fixed; inset: 0; background: rgba(10,12,14,.96); display: flex; align-items: center; justify-content: center; z-index: 50; }
-  .galeria img { max-width: 92vw; max-height: 82vh; object-fit: contain; border-radius: 8px; cursor: pointer; }
+  .galeria img { width: 92vw; height: 82vh; max-width: 92vw; max-height: 82vh; object-fit: contain; border-radius: 8px; cursor: pointer; }
   .g-seta { position: fixed; top: 50%; transform: translateY(-50%); background: #1d2226cc; border: 1px solid #2a2f34; color: #e8e4dc; font-size: 32px; line-height: 1; width: 52px; height: 52px; border-radius: 50%; cursor: pointer; z-index: 51; }
   .g-seta.esq { left: 12px; }
   .g-seta.dir { right: 12px; }
