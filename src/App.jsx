@@ -732,11 +732,13 @@ export default function HubImoveis() {
                       im.vagas && `${im.vagas}v`, im.area && `${im.area}m²`].filter(Boolean).join(" · ")}
                   </p>
                   <div className="botoes">
-                    <button className="pdf-btn" onClick={() => gerarPDF(im)}>📄 PDF</button>
-                    <button className="rede ig" onClick={() => compartilharInstagram(im)}>📸 Instagram</button>
-                    <button className="rede fb" onClick={() => compartilharFacebook(im)}>👍 Facebook</button>
-                    {im.link && <a href={im.link} target="_blank" rel="noreferrer" className="site-link">Ver site</a>}
-                  </div>
+  <button className="pdf-btn" onClick={() => gerarPDF(im)}>📄 PDF</button>
+  <button className="rede ig" onClick={() => compartilharInstagram(im)}>📸 Instagram</button>
+  <button className="rede fb" onClick={() => compartilharFacebook(im)}>👍 Facebook</button>
+  <button className="rede drive" onClick={() => salvarNoDrive(im)}>📁 Drive</button>
+  <button className="rede parceiro" onClick={() => enviarParceiro(im)}>🤝 Parceiro</button>
+  {im.link && <a href={im.link} target="_blank" rel="noreferrer" className="site-link">Ver site</a>}
+</div>
                 </div>
               </article>
             ))}
@@ -980,6 +982,16 @@ const css = `
     color: #fff; text-shadow: 0 1px 2px #0005;
   }
   .botoes .fb:hover { filter: brightness(1.12); }
+  .botoes .drive {
+  background: linear-gradient(160deg,#4a90d9 0%,#1a73e8 50%,#0d47a1 100%);
+  color: #fff; text-shadow: 0 1px 2px #0005;
+}
+.botoes .drive:hover { filter: brightness(1.12); }
+.botoes .parceiro {
+  background: linear-gradient(160deg,#8a8a8a 0%,#5a5a5a 50%,#2e2e2e 100%);
+  color: #fff; text-shadow: 0 1px 2px #0005;
+}
+.botoes .parceiro:hover { filter: brightness(1.15); }
   /* ── Sync ── */
   .sync-centro { display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 300px; gap: 16px; }
   .sync-grande { background: #d9a440; color: #14171a; border: 0; font-family: Archivo, sans-serif; font-weight: 800; font-size: 20px; padding: 20px 48px; border-radius: 14px; cursor: pointer; letter-spacing: 1px; transition: opacity .2s; }
