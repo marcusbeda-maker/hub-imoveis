@@ -270,6 +270,47 @@ export default function HubImoveis() {
     avisar("Legenda copiada! Abrindo o Facebook — cole no campo do post.");
     window.open("https://www.facebook.com/", "_blank");
   }
+  async function salvarNoDrive(im) {
+  avisar("Enviando fotos para o Drive...");
+  try {
+    const r = await fetch(syncUrl_("salvar-drive"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: im.nome, fotos: im.fotos || [], descricao: im.observacoes || "" }),
+    });
+    const d = await r.json();
+    if (d.link) {
+      navigator.clipboard.writeText(d.link);
+      avisar(`Salvo no Drive! (${d.total_fotos} fotos) Link copiado.`);
+      window.open(d.link, "_blank");
+    } else {
+      avisar("Erro: " + (d.erro || "desconhecido"));
+    }
+  } catch {
+    avisar("Erro ao conectar com o servidor de sync.");
+  }
+}
+
+async function enviarParceiro(im) {
+  avisar("Preparando fotos com marca d'água...");
+  try {
+    const r = await fetch(syncUrl_("enviar-parceiro"), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ nome: im.nome, fotos: im.fotos || [] }),
+    });
+    const d = await r.json();
+    if (d.link) {
+      navigator.clipboard.writeText(d.link);
+      avisar(`Pronto! (${d.total_fotos} fotos c/ marca d'água) Link copiado.`);
+      window.open(d.link, "_blank");
+    } else {
+      avisar("Erro: " + (d.erro || "desconhecido"));
+    }
+  } catch {
+    avisar("Erro ao conectar com o servidor de sync.");
+  }
+}
 
   function abrirOLX(im) {
     navigator.clipboard.writeText(gerarFicha(im));
