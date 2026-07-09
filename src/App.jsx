@@ -146,7 +146,7 @@ export default function HubImoveis() {
   const [enviando, setEnviando] = useState(false);
   const [toast, setToast] = useState("");
   const [galeria, setGaleria] = useState(null);
-  const [postImovel, setPostImovel] = useState(null);
+  const [geradorImovel, setGeradorImovel] = useState(null);
   const [user, setUser] = useState(null);
   const [authPronto, setAuthPronto] = useState(false);
 
@@ -425,8 +425,15 @@ async function enviarParceiro(im) {
       vagas: im.vagas || "", area: im.area || "", descricao: im.observacoes || "",
       fotos: JSON.stringify(im.fotos || []), origem: "hub-site",
     });
-    window.open(`https://marcusbeda-ig-v3.vercel.app/?${params}`, "_blank");
-  }
+    function compartilharInstagram(im) {
+  const params = new URLSearchParams({
+    titulo: im.nome, tipo: im.tipo, bairro: [im.bairro, im.cidade].filter(Boolean).join(", "),
+    preco: im.valor || "", quartos: im.quartos || "", banheiros: im.banheiros || "",
+    vagas: im.vagas || "", area: im.area || "", descricao: im.observacoes || "",
+    fotos: JSON.stringify(im.fotos || []), origem: "hub-site",
+  });
+  setGeradorImovel({ url: `https://marcusbeda-ig-v3.vercel.app/?${params}`, titulo: im.nome });
+}
 
   function compartilharFacebook(im) {
   const texto = gerarAnuncioSite(im);
@@ -874,7 +881,20 @@ async function enviarParceiro(im) {
         </div>
       )}
 
-      {galeria && (
+      {geradorImovel && (
+  <div className="galeria" onClick={() => setGeradorImovel(null)}>
+    <button className="g-fechar" onClick={() => setGeradorImovel(null)}>×</button>
+    <iframe
+      title="Gerador de posts"
+      src={geradorImovel.url}
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        width: "95vw", height: "92vh", border: "none",
+        borderRadius: "10px", background: "#fff",
+      }}
+    />
+  </div>
+)}{galeria && (
         <div className="galeria" onClick={() => setGaleria(null)}>
           <button className="g-fechar" onClick={() => setGaleria(null)}>×</button>
           <button
