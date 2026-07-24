@@ -721,7 +721,7 @@ async function enviarParceiro(im) {
                   {im.publicadoEm && <p className="pub">Publicado {new Date(im.publicadoEm).toLocaleDateString("pt-BR")}</p>}
                   <div className="botoes">
                     {papel === "admin" && (
-                      <button className="primario" onClick={() => setPostImovel(im)}>Preparar post</button>
+                      <button className="primario" onClick={() => setGeradorImovel(im)}>Preparar post</button>
                     )}
                     <button onClick={() => copiarAnuncio(im)}>Copiar anúncio</button>
                     <button onClick={() => copiarFicha(im)}>Copiar ficha</button>
@@ -838,19 +838,19 @@ async function enviarParceiro(im) {
         </section>
       )}
 
-      {postImovel && (
-        <div className="galeria" onClick={() => setPostImovel(null)}>
+      {geradorImovel && (
+        <div className="galeria" onClick={() => setGeradorImovel(null)}>
           <div className="post-painel" onClick={(e) => e.stopPropagation()}>
-            <button className="g-fechar" onClick={() => setPostImovel(null)}>×</button>
+            <button className="g-fechar" onClick={() => setGeradorImovel(null)}>×</button>
             <h2>Preparar post</h2>
-            <p className="post-titulo">{postImovel.titulo}</p>
+            <p className="post-titulo">{geradorImovel.titulo}</p>
 
             <div className="post-passo">
               <span className="post-num">1</span>
               <div>
                 <strong>Baixe as fotos</strong>
-                <p>Salva as {postImovel.fotos?.length || 0} fotos no seu aparelho para usar no post.</p>
-                <button onClick={() => baixarTodasFotos(postImovel)}>⬇ Baixar todas as fotos</button>
+                <p>Salva as {geradorImovel.fotos?.length || 0} fotos no seu aparelho para usar no post.</p>
+                <button onClick={() => baixarTodasFotos(geradorImovel)}>⬇ Baixar todas as fotos</button>
               </div>
             </div>
 
@@ -860,10 +860,10 @@ async function enviarParceiro(im) {
                 <strong>Escolha onde publicar</strong>
                 <p>A legenda é copiada automaticamente. É só colar no app que abrir.</p>
                 <div className="post-redes">
-                  <button className="rede ig" onClick={() => abrirInstagram(postImovel)}>Instagram</button>
-                  <button className="rede fb" onClick={() => abrirFacebook(postImovel)}>Facebook</button>
-                  <button className="rede olx" onClick={() => abrirOLX(postImovel)}>OLX</button>
-                  <button className="rede wa" onClick={() => abrirWhatsApp(postImovel)}>WhatsApp</button>
+                  <button className="rede ig" onClick={() => abrirInstagram(geradorImovel)}>Instagram</button>
+                  <button className="rede fb" onClick={() => abrirFacebook(geradorImovel)}>Facebook</button>
+                  <button className="rede olx" onClick={() => abrirOLX(geradorImovel)}>OLX</button>
+                  <button className="rede wa" onClick={() => abrirWhatsApp(geradorImovel)}>WhatsApp</button>
                 </div>
               </div>
             </div>
@@ -873,7 +873,7 @@ async function enviarParceiro(im) {
               <div>
                 <strong>Gerar com IA</strong>
                 <p>Abre o Gerador já preenchido com os dados deste imóvel. Selecione as fotos que quer usar no post.</p>
-                <button onClick={() => abrirInstagram(postImovel)} style={{background:"linear-gradient(135deg,#c9a96e,#a07030)",color:"#000",fontWeight:700,border:0,padding:"10px 16px",borderRadius:"8px",cursor:"pointer",fontSize:"14px"}}>✨ Gerar com IA</button>
+                <button onClick={() => abrirInstagram(geradorImovel)} style={{background:"linear-gradient(135deg,#c9a96e,#a07030)",color:"#000",fontWeight:700,border:0,padding:"10px 16px",borderRadius:"8px",cursor:"pointer",fontSize:"14px"}}>✨ Gerar com IA</button>
               </div>
             </div>
 
