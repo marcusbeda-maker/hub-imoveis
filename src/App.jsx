@@ -579,6 +579,7 @@ async function enviarParceiro(im) {
 
       <header>
         <div>
+          <img src="https://dashboard-imoveis-xml-official.vercel.app/assets/logo-emcaza.jpg" alt="EMCAZA" className="logo-emcaza" />
           <span className="marca">EMCAZA</span>
           <span className="sub">Hub de Imóveis</span>
         </div>
@@ -592,6 +593,9 @@ async function enviarParceiro(im) {
           </button>
           <button className={aba === "site" ? "ativo" : ""} onClick={() => setAba("site")}>
             Imóveis Site
+          </button>
+          <button className={aba === "xml" ? "ativo" : ""} onClick={() => setAba("xml")}>
+            Dashboard XML
           </button>
           <button className={aba === "sync" ? "ativo" : ""} onClick={() => setAba("sync")}>
             🔄 Notion Sync
@@ -793,8 +797,12 @@ async function enviarParceiro(im) {
           </div>
         </section>
       )}
-
-      {aba === "sync" && (
+      {aba === "xml" && (
+            <section className="xml-embed">
+                    <iframe src="https://dashboard-imoveis-xml-official.vercel.app" title="Dashboard Imoveis XML" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
+            </section>
+        )}
+    {aba === "sync" && (
         <section className="sync-centro">
           <button
             className={`sync-grande${syncRodando ? " rodando" : ""}`}
@@ -929,6 +937,9 @@ async function enviarParceiro(im) {
           >⬇ Baixar foto</button>
         </div>
       )}
+    <footer className="hub-footer">
+    <img src="https://dashboard-imoveis-xml-official.vercel.app/assets/logo-marcus-beda.jpg" alt="Marcus Beda Corretor de Imoveis" className="logo-marcus" />
+    </footer>
     </div>
   );
 }
@@ -1064,4 +1075,8 @@ const css = `
   .sync-vpn-btn { background: #1d2226; border: 1px solid #2a2f34; color: #c8cdd2; padding: 10px 18px; border-radius: 8px; cursor: pointer; font-size: 13px; }
   .sync-vpn-form { background: #1d2226; border: 1px solid #2a2f34; border-radius: 10px; padding: 16px; max-width: 320px; }
   .sync-vpn-form input { width: 100%; margin-top: 6px; }
-`;
+  .logo-emcaza { height: 40px; margin-right: 10px; }
+    .logo-marcus { height: 50px; opacity: .9; }
+      .hub-footer { display: flex; justify-content: center; align-items: center; padding: 24px 0 8px; }
+        .xml-embed { width: 100%; }
+        `;
