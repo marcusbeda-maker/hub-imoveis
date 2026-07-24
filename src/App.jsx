@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+☰import React, { useState, useEffect } from "react";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc,
@@ -139,7 +139,8 @@ function TelaLogin() {
 
 export default function HubImoveis() {
   const [imoveis, setImoveis] = useState([]);
-  const [aba, setAba] = useState("lista");
+  const [aba, setAba] = useState("site");
+  const [menuAberto, setMenuAberto] = useState(false);
   const [form, setForm] = useState(VAZIO);
   const [editId, setEditId] = useState(null);
   const [filtro, setFiltro] = useState("todos");
@@ -576,26 +577,29 @@ async function enviarParceiro(im) {
           <span className="marca">EMCAZA</span>
           <span className="sub">Hub de Imóveis</span>
         </div>
-        <nav>
-          <button className={aba === "lista" ? "ativo" : ""} onClick={() => setAba("lista")}>
-            Imóveis ({imoveis.length})
-          </button>
-          <button className={aba === "form" ? "ativo" : ""}
-            onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); }}>
-            + Novo imóvel
-          </button>
-          <button className={aba === "site" ? "ativo" : ""} onClick={() => setAba("site")}>
-            Imóveis Site
-          </button>
-          <button className={aba === "xml" ? "ativo" : ""} onClick={() => setAba("xml")}>
-            Dashboard XML
-          </button>
-          <button className={aba === "sync" ? "ativo" : ""} onClick={() => setAba("sync")}>
-            🔄 Notion Sync
-          </button>
+        <div className="header-direita">
           <span className="quem" title={user.email}>
             {user.email.split("@")[0]}{papel === "admin" ? " · admin" : ""}
           </span>
+          <button className="menu-toggle" onClick={() => setMenuAberto(!menuAberto)} aria-label="Menu">☰</button>
+        </div>
+        <nav className={menuAberto ? "aberto" : ""}>
+          <button className={aba === "site" ? "ativo" : ""} onClick={() => { setAba("site"); setMenuAberto(false); }}>
+            Imóveis Site
+          </button>
+          <button className={aba === "xml" ? "ativo" : ""} onClick={() => { setAba("xml"); setMenuAberto(false); }}>
+            Dashboard XML
+          </button>
+          <button className={aba === "sync" ? "ativo" : ""} onClick={() => { setAba("sync"); setMenuAberto(false); }}>
+            🔄 Notion Sync
+          </button>
+          <button className={aba === "lista" ? "ativo" : ""} onClick={() => { setAba("lista"); setMenuAberto(false); }}>
+            Imóveis ({imoveis.length})
+          </button>
+          <button className={aba === "form" ? "ativo" : ""}
+            onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); setMenuAberto(false); }}>
+            + Novo imóvel
+          </button>
           <button onClick={() => signOut(auth)}>Sair</button>
         </nav>
       </header>
@@ -1072,4 +1076,9 @@ const css = `
     .logo-marcus { height: 50px; opacity: .9; }
       .hub-footer { display: flex; justify-content: center; align-items: center; padding: 24px 0 8px; }
         .xml-embed { width: 100%; }
+  .header-direita { display: flex; align-items: center; gap: 10px; }
+  .menu-toggle { display: flex; align-items: center; justify-content: center; width: 40px; height: 40px; font-size: 20px; background: #1d2226; border: 1px solid #2a2f34; border-radius: 8px; cursor: pointer; color: #e8e4dc; }
+  header { position: relative; }
+  header nav { display: none; position: absolute; top: 100%; right: 0; background: #1a1e22; border: 1px solid #2a2f34; border-radius: 10px; padding: 10px; flex-direction: column; align-items: stretch; gap: 6px; z-index: 50; min-width: 220px; box-shadow: 0 10px 30px rgba(0,0,0,.5); margin-top: 8px; }
+  header nav.aberto { display: flex; }
         `;
