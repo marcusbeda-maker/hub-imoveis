@@ -150,6 +150,81 @@ export default function HubImoveis() {
   const [geradorImovel, setGeradorImovel] = useState(null);
   const [user, setUser] = useState(null);
   const [authPronto, setAuthPronto] = useState(false);
+  const [grupos, setGrupos] = useState([]);
+  const [gruposCarregando, setGruposCarregando] = useState(false);
+  const [buscaGrupoTermo, setBuscaGrupoTermo] = useState("");
+  const [buscaGrupoResultados, setBuscaGrupoResultados] = useState([]);
+  const [buscandoGrupo, setBuscandoGrupo] = useState(false);
+
+  async function carregarGrupos() {
+    setGruposCarregando(true);
+    try {
+      const r = await fetch(`${SYNC_API_URL}/grupos`);
+      const d = await r.json();
+      setGrupos(d.grupos || []);
+    } catch (e) {
+      console.error("Erro ao carregar grupos", e);
+    } finally {
+      setGruposCarregando(false);
+    }
+  }
+
+  async function buscarGrupoWhatsapp() {
+    if (!buscaGrupoTermo.trim()) return;
+    setBuscandoGrupo(true);
+    setBuscaGrupoResultados([]);
+    try {
+      const r = await fetch(`${SYNC_API_URL}/grupos/buscar?q=${encodeURIComponent(buscaGrupoTermo.trim())}`);
+      const d = await r.json();
+      setBuscaGrupoResultados(d.resultados || []);
+    } catch (e) {
+      console.error("Erro ao buscar grupos no WhatsApp", e);
+    } finally {
+      setBuscandoGrupo(false);
+    }
+  }
+
+  async function adicionarGrupo(g) {
+    try {
+      await fetch(`${SYNC_API_URL}/grupos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ nome: g.nome, jid: g.jid }),
+      });
+      setBuscaGrupoResultados((prev) => prev.filter((x) => x.jid !== g.jid));
+      carregarGrupos();
+    } catch (e) {
+      console.error("Erro ao adicionar grupo", e);
+    }
+  }
+
+  async function alternarAtivoGrupo(id, ativoAtual) {
+    try {
+      await fetch(`${SYNC_API_URL}/grupos/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ativo: !ativoAtual }),
+      });
+      setGrupos((prev) => prev.map((g) => (g.id === id ? { ...g, ativo: !ativoAtual } : g)));
+    } catch (e) {
+      console.error("Erro ao atualizar grupo", e);
+    }
+  }
+
+  async function excluirGrupo(id) {
+    if (!confirm("Remover este grupo da lista monitorada?")) return;
+    try {
+      await fetch(`${SYNC_API_URL}/grupos/${id}`, { method: "DELETE" });
+      setGrupos((prev) => prev.filter((g) => g.id !== id));
+    } catch (e) {
+      console.error("Erro ao excluir grupo", e);
+    }
+  }
+
+  useEffect(() => {
+    if (aba === "grupos") carregarGrupos();
+  }, [aba]);
+
 
   useEffect(
     () => onAuthStateChanged(auth, (u) => { setUser(u); setAuthPronto(true); }),
@@ -593,6 +668,9 @@ async function enviarParceiro(im) {
           <button className={aba === "sync" ? "ativo" : ""} onClick={() => { setAba("sync"); setMenuAberto(false); }}>
             🔄 Notion Sync
           </button>
+          <button className={aba === "grupos" ? "ativo" : ""} onClick={() => { setAba("grupos"); setMenuAberto(false); }}>
+            📋 Grupos
+          </button>
           <button className={aba === "lista" ? "ativo" : ""} onClick={() => { setAba("lista"); setMenuAberto(false); }}>
             Imóveis ({imoveis.length})
           </button>
@@ -842,6 +920,55 @@ async function enviarParceiro(im) {
         </section>
       )}
 
+          {aba === "grupos" && (
+            <section>
+              <div className="filtros">
+                <p>Buscar grupo no WhatsApp pelo nome (a busca pode levar até 1 minuto)</p>
+                <input
+                  type="text"
+                  placeholder="Nome do grupo no WhatsApp..."
+                  value={buscaGrupoTermo}
+                  onChange={(e) => setBuscaGrupoTermo(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && buscarGrupoWhatsapp()}
+                />
+                <button className="primario" onClick={buscarGrupoWhatsapp} disabled={buscandoGrupo}>
+                  {buscandoGrupo ? "Buscando..." : "Buscar"}
+                </button>
+              </div>
+
+              {buscaGrupoResultados.length > 0 && (
+                <div className="lista-grupos">
+                  {buscaGrupoResultados.map((g) => (
+                    <div className="grupo-item" key={g.jid}>
+                      <span>{g.nome} ({g.tamanho} membros)</span>
+                      <button onClick={() => adicionarGrupo(g)}>+ Adicionar</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <h3>Grupos monitorados ({grupos.length})</h3>
+              {gruposCarregando ? (
+                <p>Carregando...</p>
+              ) : (
+                <div className="lista-grupos">
+                  {grupos.map((g) => (
+                    <div className="grupo-item" key={g.id}>
+                      <span>{g.nome}</span>
+                      <button
+                        className={g.ativo ? "grupo-ativo" : "grupo-inativo"}
+                        onClick={() => alternarAtivoGrupo(g.id, g.ativo)}
+                      >
+                        {g.ativo ? "Ativo" : "Inativo"}
+                      </button>
+                      <button onClick={() => excluirGrupo(g.id)}>Excluir</button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </section>
+          )}
+
       {geradorImovel && (
         <div className="galeria" onClick={() => setGeradorImovel(null)}>
           <div className="post-painel" onClick={(e) => e.stopPropagation()}>
@@ -1081,4 +1208,10 @@ const css = `
   header { position: relative; }
   header nav { display: none; position: absolute; top: 100%; right: 0; background: #1a1e22; border: 1px solid #2a2f34; border-radius: 10px; padding: 10px; flex-direction: column; align-items: stretch; gap: 6px; z-index: 50; min-width: 220px; box-shadow: 0 10px 30px rgba(0,0,0,.5); margin-top: 8px; }
   header nav.aberto { display: flex; }
+  
+      .lista-grupos { display: flex; flex-direction: column; gap: 8px; margin: 12px 0; }
+      .grupo-item { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 14px; background: #1a1e22; border: 1px solid #2a2f34; border-radius: 8px; }
+      .grupo-item span { flex: 1; }
+      .grupo-ativo { background: #1f3d2a; border-color: #2d5a3d; color: #7fd99a; }
+      .grupo-inativo { opacity: 0.6; }
         `;
