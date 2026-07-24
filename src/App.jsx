@@ -418,13 +418,6 @@ async function enviarParceiro(im) {
     return v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 });
   }
 
-  function compartilharInstagram(im) {
-    const params = new URLSearchParams({
-      titulo: im.nome, tipo: im.tipo, bairro: [im.bairro, im.cidade].filter(Boolean).join(", "),
-      preco: im.valor || "", quartos: im.quartos || "", banheiros: im.banheiros || "",
-      vagas: im.vagas || "", area: im.area || "", descricao: im.observacoes || "",
-      fotos: JSON.stringify(im.fotos || []), origem: "hub-site",
-    });
     function compartilharInstagram(im) {
   const params = new URLSearchParams({
     titulo: im.nome, tipo: im.tipo, bairro: [im.bairro, im.cidade].filter(Boolean).join(", "),
