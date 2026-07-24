@@ -159,7 +159,7 @@ export default function HubImoveis() {
   async function carregarGrupos() {
     setGruposCarregando(true);
     try {
-      const r = await fetch(`${SYNC_API_URL}/grupos`);
+      const r = await fetch(`${SYNC_API_VPS}/grupos`);
       const d = await r.json();
       setGrupos(d.grupos || []);
     } catch (e) {
@@ -174,7 +174,7 @@ export default function HubImoveis() {
     setBuscandoGrupo(true);
     setBuscaGrupoResultados([]);
     try {
-      const r = await fetch(`${SYNC_API_URL}/grupos/buscar?q=${encodeURIComponent(buscaGrupoTermo.trim())}`);
+      const r = await fetch(`${SYNC_API_VPS}/grupos/buscar?q=${encodeURIComponent(buscaGrupoTermo.trim())}`);
       const d = await r.json();
       setBuscaGrupoResultados(d.resultados || []);
     } catch (e) {
@@ -186,7 +186,7 @@ export default function HubImoveis() {
 
   async function adicionarGrupo(g) {
     try {
-      await fetch(`${SYNC_API_URL}/grupos`, {
+      await fetch(`${SYNC_API_VPS}/grupos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: g.nome, jid: g.jid }),
@@ -200,7 +200,7 @@ export default function HubImoveis() {
 
   async function alternarAtivoGrupo(id, ativoAtual) {
     try {
-      await fetch(`${SYNC_API_URL}/grupos/${id}`, {
+      await fetch(`${SYNC_API_VPS}/grupos/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ativo: !ativoAtual }),
@@ -214,7 +214,7 @@ export default function HubImoveis() {
   async function excluirGrupo(id) {
     if (!confirm("Remover este grupo da lista monitorada?")) return;
     try {
-      await fetch(`${SYNC_API_URL}/grupos/${id}`, { method: "DELETE" });
+      await fetch(`${SYNC_API_VPS}/grupos/${id}`, { method: "DELETE" });
       setGrupos((prev) => prev.filter((g) => g.id !== id));
     } catch (e) {
       console.error("Erro ao excluir grupo", e);
