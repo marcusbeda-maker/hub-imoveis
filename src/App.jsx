@@ -33,6 +33,7 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const COL = "imoveis";
+const COL_AVAL = "avaliacoesMercado";
 
 const TIPOS = ["Casa", "Apartamento", "Lote", "Sobrado", "Comercial", "Rural"];
 const OPERACOES = ["Venda", "Aluguel"];
@@ -48,6 +49,14 @@ const VAZIO = {
   cidade: "Goiânia", bairro: "", endereco: "",
   quartos: "", banheiros: "", vagas: "", area: "", areaLote: "",
   descricao: "", fotos: [], status: "disponivel",
+};
+const AVAL_REF_VAZIO = {
+  empreendimento: "", descricao: "", area: "", quartos: "",
+  suites: "", andar: "", posicao: "", preco: "",
+};
+const AVAL_COMP_VAZIO = {
+  plataforma: "", descricao: "", area: "", quartos: "", suites: "",
+  andar: "", posicao: "", preco: "", link: "", contato: "",
 };
 
 const fmtPreco = (v) => {
@@ -155,6 +164,13 @@ export default function HubImoveis() {
   const [buscaGrupoTermo, setBuscaGrupoTermo] = useState("");
   const [buscaGrupoResultados, setBuscaGrupoResultados] = useState([]);
   const [buscandoGrupo, setBuscandoGrupo] = useState(false);
+  const [avaliacoes, setAvaliacoes] = useState([]);
+  const [avAba, setAvAba] = useState("lista");
+  const [avEditId, setAvEditId] = useState(null);
+  const [avRef, setAvRef] = useState(AVAL_REF_VAZIO);
+  const [avComparaveis, setAvComparaveis] = useState([]);
+  const [avResultado, setAvResultado] = useState(null);
+  const [avBusca, setAvBusca] = useState("");
 
   async function carregarGrupos() {
     setGruposCarregando(true);
@@ -629,6 +645,126 @@ async function enviarParceiro(im) {
     return d.toLocaleDateString("pt-BR") + " às " + d.toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
   }
 
+
+  useEffect(() => {
+    if (!user) { setAvaliacoes([]); return; }
+    const q = query(collection(db, COL_AVAL), orderBy("criadoEm", "desc"));
+    return onSnapshot(q, (snap) =>
+      setAvaliacoes(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  }, [user]);
+
+  function avNovaPesquisa() {
+    setAvRef(AVAL_REF_VAZIO);
+    setAvComparaveis([{ ...AVAL_COMP_VAZIO }]);
+    setAvResultado(null);
+    setAvEditId(null);
+    setAvAba("form");
+  }
+
+  function avSetRef(campo) {
+    return (e) => setAvRef({ ...avRef, [campo]: e.target.value });
+  }
+
+  function avSetComp(idx, campo) {
+    return (e) => {
+      const copia = [...avComparaveis];
+      copia[idx] = { ...copia[idx], [campo]: e.target.value };
+      setAvComparaveis(copia);
+    };
+  }
+
+  function avAddComp() {
+    setAvComparaveis([...avComparaveis, { ...AVAL_COMP_VAZIO }]);
+  }
+
+  function avRemoverComp(idx) {
+    setAvComparaveis(avComparaveis.filter((_, i) => i !== idx));
+  }
+
+  function avPrecoM2(area, preco) {
+    const a = Number(area), p = Number(preco);
+    return a > 0 && p > 0 ? p / a : null;
+  }
+
+  function avFmtM2(v) {
+    return v ? v.toLocaleString("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: 0 }) : "—";
+  }
+
+  function avCalcular() {
+    const refArea = Number(avRef.area);
+    const validos = avComparaveis
+      .map((c) => ({ ...c, precoM2: avPrecoM2(c.area, c.preco) }))
+      .filter((c) => c.precoM2);
+
+    if (!validos.length) {
+      avisar("Adicione ao menos um comparável com área e preço preenchidos.");
+      return;
+    }
+
+    const similares = refArea
+      ? validos.filter((c) => Math.abs(Number(c.area) - refArea) / refArea <= 0.15)
+      : validos;
+
+    const base = similares.length ? similares : validos;
+    const media = base.reduce((s, c) => s + c.precoM2, 0) / base.length;
+    const min = Math.min(...base.map((c) => c.precoM2));
+    const max = Math.max(...base.map((c) => c.precoM2));
+    const sugerido = refArea ? media * refArea : null;
+
+    let status = null;
+    if (sugerido && avRef.preco) {
+      const refPreco = Number(avRef.preco);
+      const diff = (refPreco - sugerido) / sugerido;
+      if (diff <= -0.05) status = { label: "Abaixo do mercado", cor: "#2e7d52" };
+      else if (diff >= 0.05) status = { label: "Acima do mercado", cor: "#b07c2a" };
+      else status = { label: "Na média do mercado", cor: "#3a5e8a" };
+    }
+
+    setAvResultado({
+      mediaM2: media, minM2: min, maxM2: max,
+      baseUsada: similares.length ? "comparáveis de área similar (±15%)" : "todos os comparáveis",
+      qtdBase: base.length,
+      sugerido, status,
+    });
+  }
+
+  async function avSalvar() {
+    if (!avRef.descricao) { avisar("Descreva o imóvel de referência."); return; }
+    const dados = { referencia: avRef, comparaveis: avComparaveis, resultado: avResultado };
+    try {
+      if (avEditId) {
+        await updateDoc(doc(db, COL_AVAL, avEditId), dados);
+        avisar("Pesquisa atualizada");
+      } else {
+        await addDoc(collection(db, COL_AVAL), { ...dados, criadoEm: serverTimestamp() });
+        avisar("Pesquisa salva");
+      }
+      setAvAba("lista");
+    } catch {
+      avisar("Erro ao salvar a pesquisa.");
+    }
+  }
+
+  function avAbrir(av) {
+    setAvRef(av.referencia || AVAL_REF_VAZIO);
+    setAvComparaveis(av.comparaveis?.length ? av.comparaveis : [{ ...AVAL_COMP_VAZIO }]);
+    setAvResultado(av.resultado || null);
+    setAvEditId(av.id);
+    setAvAba("form");
+  }
+
+  async function avExcluirPesquisa(id) {
+    if (!window.confirm("Excluir esta pesquisa de mercado?")) return;
+    await deleteDoc(doc(db, COL_AVAL, id));
+    avisar("Pesquisa excluída");
+  }
+
+  const avaliacoesFiltradas = avaliacoes.filter((av) => {
+    if (!avBusca.trim()) return true;
+    const alvo = `${av.referencia?.empreendimento || ""} ${av.referencia?.descricao || ""}`.toLowerCase();
+    return alvo.includes(avBusca.trim().toLowerCase());
+  });
   const lista = imoveis.filter((im) => filtro === "todos" || im.status === filtro);
 
   if (!authPronto) {
@@ -684,6 +820,9 @@ async function enviarParceiro(im) {
                     <button className={aba === "gerador" ? "ativo" : ""} onClick={() => { setAba("gerador"); setMenuAberto(false); }}>
                                   🎨 Gerador
                                 </button>
+        <button className={aba === "avaliacao" ? "ativo" : ""} onClick={() => { setAba("avaliacao"); setAvAba("lista"); setMenuAberto(false); }}>
+          📊 Avaliação
+        </button>
           <button onClick={() => signOut(auth)}>Sair</button>
         </nav>
       </header>
@@ -896,6 +1035,112 @@ async function enviarParceiro(im) {
                           <iframe src="https://marcusbeda-ig-v3.vercel.app" title="Gerador de Posts" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
                         </section>
             )}
+      {aba === "avaliacao" && (
+        <section>
+          {avAba === "lista" && (
+            <>
+              <div className="site-topo">
+                <span className="site-total">{avaliacoesFiltradas.length} pesquisa(s) de mercado</span>
+                <button className="primario" onClick={avNovaPesquisa}>+ Nova pesquisa</button>
+              </div>
+              <div className="filtros">
+                <input
+                  type="text"
+                  placeholder="Buscar por empreendimento ou descrição..."
+                  value={avBusca}
+                  onChange={(e) => setAvBusca(e.target.value)}
+                />
+              </div>
+              {avaliacoesFiltradas.length === 0 && (
+                <div className="vazio">Nenhuma pesquisa encontrada. Crie a primeira em "+ Nova pesquisa".</div>
+              )}
+              <div className="lista-grupos">
+                {avaliacoesFiltradas.map((av) => (
+                  <div className="grupo-item" key={av.id}>
+                    <span>
+                      {av.referencia?.empreendimento || av.referencia?.descricao || "Sem descrição"}
+                      {av.resultado?.sugerido ? ` · sugerido ${avFmtM2(av.resultado.sugerido)}` : ""}
+                      {av.resultado?.status ? ` · ${av.resultado.status.label}` : ""}
+                    </span>
+                    <button onClick={() => avAbrir(av)}>Abrir</button>
+                    <button className="perigo" onClick={() => avExcluirPesquisa(av.id)}>Excluir</button>
+                  </div>
+                ))}
+              </div>
+            </>
+          )}
+
+          {avAba === "form" && (
+            <div className="card form">
+              <h2>{avEditId ? "Editar pesquisa de mercado" : "Nova pesquisa de mercado"}</h2>
+
+              <h3 className="aval-subtitulo">Imóvel de referência</h3>
+              <label>Empreendimento / Condomínio
+                <input value={avRef.empreendimento} onChange={avSetRef("empreendimento")} placeholder="Ex: Soft Pedro Ludovico" />
+              </label>
+              <label>Descrição
+                <input value={avRef.descricao} onChange={avSetRef("descricao")} placeholder="2 qtos (1 suíte), novo, 7º andar" />
+              </label>
+              <div className="grid4">
+                <label>Área (m²)<input value={avRef.area} onChange={avSetRef("area")} inputMode="numeric" /></label>
+                <label>Quartos<input value={avRef.quartos} onChange={avSetRef("quartos")} inputMode="numeric" /></label>
+                <label>Suítes<input value={avRef.suites} onChange={avSetRef("suites")} inputMode="numeric" /></label>
+                <label>Andar<input value={avRef.andar} onChange={avSetRef("andar")} /></label>
+              </div>
+              <div className="grid4">
+                <label>Posição solar<input value={avRef.posicao} onChange={avSetRef("posicao")} placeholder="Nascente" /></label>
+                <label>Preço pedido/atual em R$ (opcional)<input value={avRef.preco} onChange={avSetRef("preco")} inputMode="numeric" /></label>
+              </div>
+
+              <h3 className="aval-subtitulo">Comparáveis ({avComparaveis.length})</h3>
+              {avComparaveis.map((c, i) => (
+                <div key={i} className="card aval-comp">
+                  <div className="grid4">
+                    <label>Plataforma<input value={c.plataforma} onChange={avSetComp(i, "plataforma")} placeholder="OLX, Wimoveis..." /></label>
+                    <label>Área (m²)<input value={c.area} onChange={avSetComp(i, "area")} inputMode="numeric" /></label>
+                    <label>Preço (R$)<input value={c.preco} onChange={avSetComp(i, "preco")} inputMode="numeric" /></label>
+                    <label>Andar<input value={c.andar} onChange={avSetComp(i, "andar")} /></label>
+                  </div>
+                  <label>Descrição
+                    <input value={c.descricao} onChange={avSetComp(i, "descricao")} placeholder="2 qtos (1 suíte), novo, nunca habitado..." />
+                  </label>
+                  <div className="grid4">
+                    <label>Quartos<input value={c.quartos} onChange={avSetComp(i, "quartos")} inputMode="numeric" /></label>
+                    <label>Suítes<input value={c.suites} onChange={avSetComp(i, "suites")} inputMode="numeric" /></label>
+                    <label>Posição<input value={c.posicao} onChange={avSetComp(i, "posicao")} /></label>
+                    <label>Contato/Corretor<input value={c.contato} onChange={avSetComp(i, "contato")} /></label>
+                  </div>
+                  <label>Link do anúncio
+                    <input value={c.link} onChange={avSetComp(i, "link")} placeholder="https://..." />
+                  </label>
+                  <button className="perigo" onClick={() => avRemoverComp(i)}>Remover comparável</button>
+                </div>
+              ))}
+              <button onClick={avAddComp}>+ Adicionar comparável</button>
+
+              {avResultado && (
+                <div className="card aval-resultado">
+                  <h3 className="aval-subtitulo">Resultado</h3>
+                  <p>Preço/m² médio ({avResultado.baseUsada}, {avResultado.qtdBase} comparável(is)): <strong>{avFmtM2(avResultado.mediaM2)}</strong></p>
+                  <p>Faixa entre comparáveis: {avFmtM2(avResultado.minM2)} — {avFmtM2(avResultado.maxM2)} por m²</p>
+                  {avResultado.sugerido != null && (
+                    <p>Valor de mercado sugerido: <strong>{avFmtM2(avResultado.sugerido)}</strong></p>
+                  )}
+                  {avResultado.status && (
+                    <p style={{ color: avResultado.status.cor, fontWeight: 600 }}>{avResultado.status.label}</p>
+                  )}
+                </div>
+              )}
+
+              <div className="acoes">
+                <button className="primario" onClick={avCalcular}>Calcular</button>
+                <button className="primario" onClick={avSalvar}>{avEditId ? "Salvar alterações" : "Salvar pesquisa"}</button>
+                <button onClick={() => setAvAba("lista")}>Voltar</button>
+              </div>
+            </div>
+          )}
+        </section>
+      )}
     {aba === "sync" && (
         <section className="sync-centro">
           <button
@@ -1233,4 +1478,8 @@ const css = `
       .grupo-item span { flex: 1; }
       .grupo-ativo { background: #1f3d2a; border-color: #2d5a3d; color: #7fd99a; }
       .grupo-inativo { opacity: 0.6; }
+.aval-subtitulo { color: #d9a440; font-size: 15px; margin: 18px 0 10px; }
+.aval-comp { margin-bottom: 14px; background: #181c20; }
+.aval-resultado { margin-top: 18px; background: #181c20; }
+.aval-resultado p { margin-bottom: 6px; font-size: 14px; }
         `;
