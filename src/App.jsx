@@ -671,6 +671,9 @@ async function enviarParceiro(im) {
           <button className={aba === "grupos" ? "ativo" : ""} onClick={() => { setAba("grupos"); setMenuAberto(false); }}>
             📋 Grupos
           </button>
+          <button className={aba === "captacao" ? "ativo" : ""} onClick={() => { setAba("captacao"); setMenuAberto(false); }}>
+            📝 Captação Express
+          </button>
           <button className={aba === "lista" ? "ativo" : ""} onClick={() => { setAba("lista"); setMenuAberto(false); }}>
             Imóveis ({imoveis.length})
           </button>
@@ -877,6 +880,11 @@ async function enviarParceiro(im) {
                     <iframe src="https://dashboard-imoveis-xml-official.vercel.app" title="Dashboard Imoveis XML" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
             </section>
         )}
+      {aba === "captacao" && (
+        <section className="xml-embed">
+          <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSe_j4N6TIX6F2LXetHLi-T8xago-uLL1-Eqeg7f6WHpfJpDpQ/viewform?embedded=true" title="Captação Express" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
+        </section>
+      )}
     {aba === "sync" && (
         <section className="sync-centro">
           <button
