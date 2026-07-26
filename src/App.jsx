@@ -678,9 +678,12 @@ async function enviarParceiro(im) {
             Imóveis ({imoveis.length})
           </button>
           <button className={aba === "form" ? "ativo" : ""}
-            onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); setMenuAberto(false); }}>
+                      onClick={() => { setForm(VAZIO); setEditId(null); setAba("form"); setMenuAberto(false); }}>
             + Novo imóvel
           </button>
+                    <button className={aba === "gerador" ? "ativo" : ""} onClick={() => { setAba("gerador"); setMenuAberto(false); }}>
+                                  🎨 Gerador
+                                </button>
           <button onClick={() => signOut(auth)}>Sair</button>
         </nav>
       </header>
@@ -888,6 +891,11 @@ async function enviarParceiro(im) {
           </div>
         </section>
       )}
+            {aba === "gerador" && (
+              <section className="xml-embed">
+                          <iframe src="https://marcusbeda-ig-v3.vercel.app" title="Gerador de Posts" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
+                        </section>
+            )}
     {aba === "sync" && (
         <section className="sync-centro">
           <button
