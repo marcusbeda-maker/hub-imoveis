@@ -881,8 +881,11 @@ async function enviarParceiro(im) {
             </section>
         )}
       {aba === "captacao" && (
-        <section className="xml-embed">
-          <iframe src="https://docs.google.com/forms/d/e/1FAIpQLSe_j4N6TIX6F2LXetHLi-T8xago-uLL1-Eqeg7f6WHpfJpDpQ/viewform?embedded=true" title="Captação Express" style={{ width: "100%", height: "85vh", border: "none", borderRadius: "8px" }} />
+                <section className="xml-embed">
+          <div className="vazio" style={{ textAlign: "center", padding: "60px 20px" }}>
+            <p style={{ marginBottom: "16px", color: "#8b9299" }}>Preencha o formulário para cadastrar um novo imóvel via Captação Express.</p>
+            <button className="primario" onClick={() => window.open("https://docs.google.com/forms/d/e/1FAIpQLSe_j4N6TIX6F2LXetHLi-T8xago-uLL1-Eqeg7f6WHpfJpDpQ/viewform", "_blank")}>📝 Abrir formulário Captação Express</button>
+          </div>
         </section>
       )}
     {aba === "sync" && (
