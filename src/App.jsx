@@ -531,6 +531,53 @@ async function enviarParceiro(im) {
     "width=580,height=520"
   );
 }
+  // ---- Publicação automática (VPS 1 · /opt/insta) -------------------------
+  // Busca a prévia, mostra para conferência e só publica após confirmação.
+  // A chave da API fica na Vercel (INSTA_API_KEY), nunca no navegador.
+  async function publicarAgora(im, rede) {
+    const codigo = im.link || im.nome;
+    if (!codigo) {
+      avisar("Este imóvel não tem link do site — não consigo identificá-lo.");
+      return;
+    }
+    try {
+      avisar("Montando a publicação...");
+      const q = new URLSearchParams({ acao: "previa", codigo, rede, fotos: "10" });
+      const rp = await fetch(`/api/insta-proxy?${q}`);
+      const previa = await rp.json();
+      if (!rp.ok || previa.erro) {
+        avisar("Erro: " + (previa.erro || rp.status));
+        return;
+      }
+
+      const onde = rede === "facebook" ? "Facebook (Marcus Béda Imóveis)" : "Instagram (@marcusbeda)";
+      const ok = window.confirm(
+        `PUBLICAR NO ${onde.toUpperCase()}\n\n` +
+        `Imóvel: ${previa.codigo}\n` +
+        `Fotos: ${previa.total_fotos}\n\n` +
+        `${previa.legenda}\n\n` +
+        `--- Confirmar publicação? Esta ação é irreversível. ---`
+      );
+      if (!ok) { avisar("Cancelado."); return; }
+
+      avisar("Publicando... pode levar até 1 minuto.");
+      const rpub = await fetch("/api/insta-proxy?acao=publicar", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo: previa.codigo, rede, fotos: previa.total_fotos }),
+      });
+      const res = await rpub.json();
+      if (!rpub.ok || res.erro) {
+        avisar("Falhou: " + (res.erro || rpub.status));
+        return;
+      }
+      avisar(`Publicado no ${rede}! ${res.fotos} fotos.`);
+      if (res.link) window.open(res.link, "_blank");
+    } catch (e) {
+      avisar("Erro de rede: " + String(e).slice(0, 120));
+    }
+  }
+
   function gerarAnuncioSite(im) {
     const specs = [
       im.quartos && `${im.quartos} quartos`,
@@ -1007,6 +1054,8 @@ async function enviarParceiro(im) {
   <button className="pdf-btn" onClick={() => gerarPDF(im)}>📄 PDF</button>
   <button className="rede ig" onClick={() => compartilharInstagram(im)}>📸 Instagram</button>
   <button className="rede fb" onClick={() => compartilharFacebook(im)}>👍 Facebook</button>
+  <button className="rede pub-ig" onClick={() => publicarAgora(im, "instagram")} title="Publica direto no @marcusbeda, com até 10 fotos">🚀 Publicar IG</button>
+  <button className="rede pub-fb" onClick={() => publicarAgora(im, "facebook")} title="Publica direto na página Marcus Béda Imóveis">🚀 Publicar FB</button>
   <button className="rede drive" onClick={() => salvarNoDrive(im)}>📁 Drive</button>
   <button className="rede parceiro" onClick={() => enviarParceiro(im)}>🤝 Parceiro</button>
   {im.link && <a href={im.link} target="_blank" rel="noreferrer" className="site-link">Ver site</a>}
