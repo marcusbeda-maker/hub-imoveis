@@ -540,9 +540,19 @@ async function enviarParceiro(im) {
       avisar("Este imóvel não tem link do site — não consigo identificá-lo.");
       return;
     }
+    // 1) legenda escrita por IA analisando as fotos (custa ~R$ 0,15) ou a padrão
+    const usarIA = window.confirm(
+      "Como quer a legenda?\n\n" +
+      "OK      = escrever com IA, analisando as fotos do imóvel\n" +
+      "Cancelar = legenda padrão, montada dos dados do site\n\n" +
+      "(a IA leva uns 20 segundos e custa cerca de R$ 0,15)"
+    );
+
     try {
-      avisar("Montando a publicação...");
-      const q = new URLSearchParams({ acao: "previa", codigo, rede, fotos: "10" });
+      avisar(usarIA ? "Escrevendo a legenda com IA..." : "Montando a publicação...");
+      const q = new URLSearchParams({
+        acao: "previa", codigo, rede, fotos: "10", ia: usarIA ? "1" : "0",
+      });
       const rp = await fetch(`/api/insta-proxy?${q}`);
       const previa = await rp.json();
       if (!rp.ok || previa.erro) {
@@ -550,13 +560,20 @@ async function enviarParceiro(im) {
         return;
       }
 
+      // 2) você lê, pode editar, e só então publica
       const onde = rede === "facebook" ? "Facebook (Marcus Béda Imóveis)" : "Instagram (@marcusbeda)";
+      const origem = previa.ia ? "escrita por IA" : "legenda padrão";
+      const legenda = window.prompt(
+        `PUBLICAR NO ${onde.toUpperCase()}\n` +
+        `${previa.codigo} · ${previa.total_fotos} fotos · ${origem}\n\n` +
+        `Revise abaixo. Pode editar. Cancelar não publica nada.`,
+        previa.legenda
+      );
+      if (legenda === null || !legenda.trim()) { avisar("Cancelado."); return; }
+
       const ok = window.confirm(
-        `PUBLICAR NO ${onde.toUpperCase()}\n\n` +
-        `Imóvel: ${previa.codigo}\n` +
-        `Fotos: ${previa.total_fotos}\n\n` +
-        `${previa.legenda}\n\n` +
-        `--- Confirmar publicação? Esta ação é irreversível. ---`
+        `Publicar agora no ${rede}?\n\n` +
+        `${previa.total_fotos} fotos · esta ação é irreversível.`
       );
       if (!ok) { avisar("Cancelado."); return; }
 
@@ -564,7 +581,10 @@ async function enviarParceiro(im) {
       const rpub = await fetch("/api/insta-proxy?acao=publicar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo: previa.codigo, rede, fotos: previa.total_fotos }),
+        body: JSON.stringify({
+          codigo: previa.codigo, rede, fotos: previa.total_fotos,
+          legenda,   // exatamente o texto que você aprovou
+        }),
       });
       const res = await rpub.json();
       if (!rpub.ok || res.erro) {

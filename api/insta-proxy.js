@@ -29,10 +29,12 @@ export default async function handler(req, res) {
     }
 
     if (acao === "previa") {
-      const { codigo = "", rede = "instagram", fotos = "10" } = req.query;
+      const { codigo = "", rede = "instagram", fotos = "10", ia = "0" } = req.query;
       if (!codigo) return res.status(400).json({ erro: "codigo obrigatório" });
       const url = `${BASE}/previa?codigo=${encodeURIComponent(codigo)}` +
-                  `&rede=${encodeURIComponent(rede)}&fotos=${encodeURIComponent(fotos)}`;
+                  `&rede=${encodeURIComponent(rede)}&fotos=${encodeURIComponent(fotos)}` +
+                  `&ia=${encodeURIComponent(ia)}`;
+      // a IA analisa as fotos e demora ~20s; damos folga no tempo
       const r = await fetch(url, { headers: { "X-API-Key": CHAVE } });
       return res.status(r.status).json(await r.json());
     }
@@ -51,6 +53,8 @@ export default async function handler(req, res) {
           codigo: body.codigo,
           rede: body.rede || "instagram",
           fotos: Number(body.fotos) || 10,
+          // legenda aprovada na prévia; se vier vazia a VPS monta a padrão
+          legenda: body.legenda || "",
         }),
       });
       return res.status(r.status).json(await r.json());
