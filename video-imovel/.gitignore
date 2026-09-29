@@ -1,0 +1,12 @@
+node_modules/
+.venv/
+exports/
+out/
+*.mp4
+*.wav
+*.mp3
+template/public/*
+!template/public/.gitkeep
+template/teste.png
+template/src/marca.local.json
+__pycache__/

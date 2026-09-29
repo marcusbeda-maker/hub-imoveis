@@ -1,0 +1,11 @@
+{
+  "name": "video-imovel",
+  "owner": { "name": "Marcus Béda" },
+  "plugins": [
+    {
+      "name": "video-imovel",
+      "source": "./",
+      "description": "Vídeo de imóvel do bruto ao pronto, em português: legendas, cards de imóvel, WhatsApp, 9:16/1:1/16:9."
+    }
+  ]
+}

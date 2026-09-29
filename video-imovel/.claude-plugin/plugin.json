@@ -1,0 +1,10 @@
+{
+  "name": "video-imovel",
+  "description": "Vídeo de imóvel do bruto ao pronto, em português: /video-imovel transcreve a narração localmente (whisper.cpp, sem chave de API), corta silêncios e regravações, coloca legendas estilo Reels palavra a palavra, cards de imóvel (preço, quartos, vagas, m², bairro, diferenciais, localização), selo, cartão do corretor e botão de WhatsApp, narração com voz sintética pt-BR feminina/masculina, áudio gravado à parte ou só texto, e renderiza em 9:16, 1:1 e 16:9 no Remotion. Baseado no video-edit de Abhinav (MIT).",
+  "version": "1.1.0",
+  "author": {
+    "name": "Marcus Béda"
+  },
+  "repository": "https://github.com/marcusbeda-maker/video-imovel",
+  "license": "MIT"
+}
