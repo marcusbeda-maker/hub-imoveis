@@ -33,6 +33,17 @@ const app = initializeApp(firebaseConfig);
 const db = getFirestore(app);
 const auth = getAuth(app);
 const COL = "imoveis";
+
+// Chamadas as funcoes /api/* levam o token do login: sem ele a Vercel
+// responde 401. Outros enderecos (sync local, fotos) seguem sem cabecalho.
+async function apiFetch(url, opcoes = {}) {
+  if (!url.startsWith("/api/") || !auth.currentUser) return fetch(url, opcoes);
+  const token = await auth.currentUser.getIdToken();
+  return fetch(url, {
+    ...opcoes,
+    headers: { ...(opcoes.headers || {}), Authorization: `Bearer ${token}` },
+  });
+}
 const COL_AVAL = "avaliacoesMercado";
 
 const TIPOS = ["Casa", "Apartamento", "Lote", "Sobrado", "Comercial", "Rural"];
@@ -175,7 +186,7 @@ export default function HubImoveis() {
   async function carregarGrupos() {
     setGruposCarregando(true);
     try {
-      const r = await fetch(`/api/grupos-proxy`);
+      const r = await apiFetch(`/api/grupos-proxy`);
       const d = await r.json();
       setGrupos(d.grupos || []);
     } catch (e) {
@@ -190,7 +201,7 @@ export default function HubImoveis() {
     setBuscandoGrupo(true);
     setBuscaGrupoResultados([]);
     try {
-      const r = await fetch(`/api/grupos-proxy?buscar=${encodeURIComponent(buscaGrupoTermo.trim())}`);
+      const r = await apiFetch(`/api/grupos-proxy?buscar=${encodeURIComponent(buscaGrupoTermo.trim())}`);
       const d = await r.json();
       setBuscaGrupoResultados(d.resultados || []);
     } catch (e) {
@@ -202,7 +213,7 @@ export default function HubImoveis() {
 
   async function adicionarGrupo(g) {
     try {
-      await fetch(`/api/grupos-proxy`, {
+      await apiFetch(`/api/grupos-proxy`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ nome: g.nome, jid: g.jid }),
@@ -216,7 +227,7 @@ export default function HubImoveis() {
 
   async function alternarAtivoGrupo(id, ativoAtual) {
     try {
-      await fetch(`/api/grupos-proxy?id=${id}`, {
+      await apiFetch(`/api/grupos-proxy?id=${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ ativo: !ativoAtual }),
@@ -230,7 +241,7 @@ export default function HubImoveis() {
   async function excluirGrupo(id) {
     if (!confirm("Remover este grupo da lista monitorada?")) return;
     try {
-      await fetch(`/api/grupos-proxy?id=${id}`, { method: "DELETE" });
+      await apiFetch(`/api/grupos-proxy?id=${id}`, { method: "DELETE" });
       setGrupos((prev) => prev.filter((g) => g.id !== id));
     } catch (e) {
       console.error("Erro ao excluir grupo", e);
@@ -238,8 +249,8 @@ export default function HubImoveis() {
   }
 
   useEffect(() => {
-    if (aba === "grupos") carregarGrupos();
-  }, [aba]);
+    if (aba === "grupos" && user) carregarGrupos();
+  }, [aba, user]);
 
 
   useEffect(
@@ -365,7 +376,7 @@ export default function HubImoveis() {
   async function salvarNoDrive(im) {
   avisar("Enviando fotos para o Drive...");
   try {
-    const r = await fetch(syncUrl_("salvar-drive"), {
+    const r = await apiFetch(syncUrl_("salvar-drive"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nome: im.nome, fotos: im.fotos || [], descricao: im.observacoes || "" }),
@@ -386,7 +397,7 @@ export default function HubImoveis() {
 async function enviarParceiro(im) {
   avisar("Preparando fotos com marca d'água...");
   try {
-    const r = await fetch(syncUrl_("enviar-parceiro"), {
+    const r = await apiFetch(syncUrl_("enviar-parceiro"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ nome: im.nome, fotos: im.fotos || [] }),
@@ -481,11 +492,13 @@ async function enviarParceiro(im) {
   const [siteErro, setSiteErro] = useState("");
   const [siteDetalhe, setSiteDetalhe] = useState(null);
 
+  // depende de `user`: a rota /api/imoveis-site exige login, entao carregar
+  // antes do login dava 401 e a tela ficava travada no erro
   useEffect(() => {
-    if (aba !== "site") return;
+    if (aba !== "site" || !user) return;
     if (imoveisSite.length > 0) return;
     carregarSite();
-  }, [aba]);
+  }, [aba, user]);
 
   async function carregarSite() {
     setSiteCarregando(true); setSiteErro("");
@@ -493,7 +506,7 @@ async function enviarParceiro(im) {
       const url = isLocalhost
         ? `${SYNC_API_URL}/notion-imoveis`
         : `/api/imoveis-site`;
-      const r = await fetch(url);
+      const r = await apiFetch(url);
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       const d = await r.json();
       if (d.erro) throw new Error(d.erro);
@@ -553,7 +566,7 @@ async function enviarParceiro(im) {
       const q = new URLSearchParams({
         acao: "previa", codigo, rede, fotos: "10", ia: usarIA ? "1" : "0",
       });
-      const rp = await fetch(`/api/insta-proxy?${q}`);
+      const rp = await apiFetch(`/api/insta-proxy?${q}`);
       const previa = await rp.json();
       if (!rp.ok || previa.erro) {
         avisar("Erro: " + (previa.erro || rp.status));
@@ -578,7 +591,7 @@ async function enviarParceiro(im) {
       if (!ok) { avisar("Cancelado."); return; }
 
       avisar("Publicando... pode levar até 1 minuto.");
-      const rpub = await fetch("/api/insta-proxy?acao=publicar", {
+      const rpub = await apiFetch("/api/insta-proxy?acao=publicar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -663,15 +676,15 @@ async function enviarParceiro(im) {
   const [syncLog, setSyncLog] = useState(false);
 
   useEffect(() => {
-    if (aba !== "sync") return;
+    if (aba !== "sync" || !user) return;
     buscarStatus();
     const id = setInterval(buscarStatus, 4000);
     return () => clearInterval(id);
-  }, [aba]);
+  }, [aba, user]);
 
   async function buscarStatus() {
     try {
-      const r = await fetch(syncUrl_("status"));
+      const r = await apiFetch(syncUrl_("status"));
       if (!r.ok) throw new Error();
       const d = await r.json();
       setSyncStatus(d);
@@ -685,7 +698,7 @@ async function enviarParceiro(im) {
     if (syncRodando) return;
     setSyncRodando(true);
     try {
-      await fetch(syncUrl_("sync"), { method: "POST" });
+      await apiFetch(syncUrl_("sync"), { method: "POST" });
       avisar("Sincronização iniciada! Aguarde...");
     } catch {
       avisar("Erro ao conectar com o servidor de sync.");
@@ -697,7 +710,7 @@ async function enviarParceiro(im) {
     if (!syncStatus) return;
     const rota = syncStatus.agendado ? "cancelar-agendamento" : "agendar";
     try {
-      const r = await fetch(syncUrl_(rota), { method: "POST" });
+      const r = await apiFetch(syncUrl_(rota), { method: "POST" });
       const d = await r.json();
       setSyncStatus((s) => ({ ...s, agendado: d.agendado }));
       avisar(d.agendado ? "Sync diário ativado (06:00)" : "Agendamento cancelado");

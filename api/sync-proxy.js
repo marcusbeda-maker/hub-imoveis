@@ -1,7 +1,10 @@
+import { exigeLogin } from "./_auth.js";
+
 const VPS = "http://179.197.64.167:5999";
 
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
+  if (!(await exigeLogin(req, res))) return;
   const rota = req.query.rota || "status";
   const GET_ROTAS = ["status", "notion-imoveis"];
   const method = GET_ROTAS.includes(rota) ? "GET" : "POST";
