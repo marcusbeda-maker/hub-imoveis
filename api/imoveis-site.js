@@ -1,7 +1,10 @@
 // Vercel serverless — proxy Notion database
+import { exigeLogin } from "./_auth.js";
+
 export default async function handler(req, res) {
   res.setHeader("Access-Control-Allow-Origin", "*");
   if (req.method === "OPTIONS") return res.status(200).end();
+  if (!(await exigeLogin(req, res))) return;
 
   const TOKEN = process.env.NOTION_TOKEN;
   const DB_ID = process.env.NOTION_DATABASE_ID || "9b57d36bd0a04e1eb7ad8ad1dd3bfa93";
