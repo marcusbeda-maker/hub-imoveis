@@ -172,6 +172,7 @@ export default function HubImoveis() {
   const [authPronto, setAuthPronto] = useState(false);
   const [grupos, setGrupos] = useState([]);
   const [gruposCarregando, setGruposCarregando] = useState(false);
+  const [gruposErro, setGruposErro] = useState("");
   const [buscaGrupoTermo, setBuscaGrupoTermo] = useState("");
   const [buscaGrupoResultados, setBuscaGrupoResultados] = useState([]);
   const [buscandoGrupo, setBuscandoGrupo] = useState(false);
@@ -185,12 +186,16 @@ export default function HubImoveis() {
 
   async function carregarGrupos() {
     setGruposCarregando(true);
+    setGruposErro("");
     try {
       const r = await apiFetch(`/api/grupos-proxy`);
-      const d = await r.json();
+      const d = await r.json().catch(() => ({}));
+      // erro aparece na tela: antes a lista so ficava vazia, sem explicar o motivo
+      if (!r.ok || d.erro) throw new Error(d.erro || `HTTP ${r.status}`);
       setGrupos(d.grupos || []);
     } catch (e) {
       console.error("Erro ao carregar grupos", e);
+      setGruposErro(e.message);
     } finally {
       setGruposCarregando(false);
     }
@@ -1294,6 +1299,9 @@ async function enviarParceiro(im) {
               )}
 
               <h3>Grupos monitorados ({grupos.length})</h3>
+              {gruposErro && !gruposCarregando && (
+                <p className="erro">Não consegui carregar os grupos: {gruposErro}</p>
+              )}
               {gruposCarregando ? (
                 <p>Carregando...</p>
               ) : (
