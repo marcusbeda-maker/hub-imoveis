@@ -25,7 +25,7 @@ const CLOUDINARY = {
 const N8N_WEBHOOK_URL = "http://localhost:5678/webhook/publicar-imovel";
 const SYNC_API_URL = "http://localhost:5999";
 const SYNC_API_VPS = "http://179.197.64.167:5999";
-const WHATSAPP_NEGOCIOS = "(62) 9XXXX-XXXX";
+const WHATSAPP_NEGOCIOS = "(62) 4141-5271";
 
 const ADMINS = ["marcusbeda@gmail.com"];
 
@@ -78,7 +78,7 @@ function gerarAnuncio(im) {
   linhas.push(`💰 ${im.operacao}: ${fmtPreco(im.preco)}${im.operacao === "Aluguel" ? "/mês" : ""}`);
   if (im.descricao) linhas.push(`\n${im.descricao}`);
   linhas.push(`\n📲 Agende sua visita: ${WHATSAPP_NEGOCIOS}`);
-  linhas.push(`Marcus Beda — EMCAZA Imóveis · CRECI 23.152`);
+  linhas.push(`Marcus Béda — EMCAZA Imóveis · CRECI GO 23.152`);
   const cidadeTag = im.cidade.toLowerCase().replace(/\s/g, "");
   linhas.push(`\n#imoveis${cidadeTag} #${im.tipo.toLowerCase()}avenda #emcazaimoveis #${cidadeTag} #imobiliaria #seuimovelaqui`);
   return linhas.join("\n");
@@ -100,7 +100,7 @@ function gerarFicha(im) {
   if (im.descricao) { l.push(""); l.push(im.descricao); }
   l.push("");
   l.push(`📲 *Agende sua visita:* ${WHATSAPP_NEGOCIOS}`);
-  l.push(`Marcus Beda — EMCAZA Imóveis · CRECI 23.152`);
+  l.push(`Marcus Béda — EMCAZA Imóveis · CRECI GO 23.152`);
   return l.join("\n");
 }
 
@@ -534,6 +534,39 @@ async function enviarParceiro(im) {
   // ---- Publicação automática (VPS 1 · /opt/insta) -------------------------
   // Busca a prévia, mostra para conferência e só publica após confirmação.
   // A chave da API fica na Vercel (INSTA_API_KEY), nunca no navegador.
+  // 05/11/2026: window.prompt e de uma linha so e apagava as quebras de linha da
+  // legenda (tudo saia grudado no Instagram). Agora a revisao e numa caixa de texto.
+  function editarLegenda(titulo, texto) {
+    return new Promise((resolve) => {
+      const fundo = document.createElement("div");
+      fundo.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:99999;display:flex;align-items:center;justify-content:center;padding:16px";
+      const caixa = document.createElement("div");
+      caixa.style.cssText = "background:#fff;color:#111;border-radius:12px;max-width:640px;width:100%;padding:16px;display:flex;flex-direction:column;gap:10px;font-family:system-ui,sans-serif";
+      const cab = document.createElement("div");
+      cab.style.cssText = "white-space:pre-wrap;font-size:14px;font-weight:600";
+      cab.textContent = titulo;
+      const area = document.createElement("textarea");
+      area.value = texto || "";
+      area.style.cssText = "width:100%;min-height:340px;font-size:15px;line-height:1.4;padding:10px;border:1px solid #ccc;border-radius:8px;box-sizing:border-box;resize:vertical";
+      const linha = document.createElement("div");
+      linha.style.cssText = "display:flex;gap:10px;justify-content:flex-end";
+      const fim = (v) => { document.body.removeChild(fundo); resolve(v); };
+      const bCanc = document.createElement("button");
+      bCanc.textContent = "Cancelar";
+      bCanc.style.cssText = "padding:10px 16px;border-radius:8px;border:1px solid #ccc;background:#f3f3f3;cursor:pointer";
+      bCanc.onclick = () => fim(null);
+      const bOk = document.createElement("button");
+      bOk.textContent = "Continuar";
+      bOk.style.cssText = "padding:10px 16px;border-radius:8px;border:0;background:#1877f2;color:#fff;font-weight:600;cursor:pointer";
+      bOk.onclick = () => fim(area.value);
+      linha.append(bCanc, bOk);
+      caixa.append(cab, area, linha);
+      fundo.append(caixa);
+      document.body.append(fundo);
+      area.focus();
+    });
+  }
+
   async function publicarAgora(im, rede) {
     const codigo = im.link || im.nome;
     if (!codigo) {
@@ -563,7 +596,7 @@ async function enviarParceiro(im) {
       // 2) você lê, pode editar, e só então publica
       const onde = rede === "facebook" ? "Facebook (Marcus Béda Imóveis)" : "Instagram (@marcusbeda)";
       const origem = previa.ia ? "escrita por IA" : "legenda padrão";
-      const legenda = window.prompt(
+      const legenda = await editarLegenda(
         `PUBLICAR NO ${onde.toUpperCase()}\n` +
         `${previa.codigo} · ${previa.total_fotos} fotos · ${origem}\n\n` +
         `Revise abaixo. Pode editar. Cancelar não publica nada.`,
@@ -612,7 +645,7 @@ async function enviarParceiro(im) {
       `💰 ${im.finalidade}: ${fmtValor(im.valor)}`,
       im.observacoes && `\n${im.observacoes}`,
       `\n📲 Agende sua visita: ${WHATSAPP_NEGOCIOS}`,
-      `Marcus Beda — EMCAZA Imóveis · CRECI 23.152`,
+      `Marcus Béda — EMCAZA Imóveis · CRECI GO 23.152`,
     ].filter(Boolean).join("\n");
   }
 
@@ -650,7 +683,7 @@ async function enviarParceiro(im) {
     <p class="specs">${specs.replace(/[<>]/g, "")}</p>
     ${im.observacoes ? `<p class="desc">${im.observacoes.replace(/[<>]/g, "")}</p>` : ""}
     ${fotos.length ? `<div class="fotos">${fotosHtml}</div>` : ""}
-    <div class="rodape">Marcus Beda — EMCAZA Imóveis · CRECI 23.152 · (62) 98116-2705</div>
+    <div class="rodape">Marcus Béda — EMCAZA Imóveis · CRECI GO 23.152 · WhatsApp (62) 4141-5271</div>
     </body></html>`], { type: "text/html" });
     const url = URL.createObjectURL(blob);
     window.open(url, "_blank");
