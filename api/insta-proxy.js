@@ -60,6 +60,24 @@ export default async function handler(req, res) {
       return res.status(r.status).json(await r.json());
     }
 
+    // 05/11/2026: ferramentas extras (Reels Gancho/Tour e kit CapCut/Edits/Canva) — tudo assincrono
+    if (["video", "video-status", "kit"].includes(acao)) {
+      const ps = new URLSearchParams();
+      for (const k of ["codigo", "modelo", "gancho", "job"]) if (req.query[k]) ps.set(k, String(req.query[k]));
+      const r = await fetch(`${BASE}/${acao}?${ps}`, { headers: { "X-API-Key": CHAVE } });
+      return res.status(r.status).json(await r.json());
+    }
+    if (acao === "publicar-video") {
+      if (req.method !== "POST") return res.status(405).json({ erro: "publicar-video exige POST" });
+      const body = typeof req.body === "string" ? JSON.parse(req.body || "{}") : (req.body || {});
+      const r = await fetch(`${BASE}/publicar-video`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", "X-API-Key": CHAVE },
+        body: JSON.stringify({ url: body.url || "", legenda: body.legenda || "", codigo: body.codigo || "" }),
+      });
+      return res.status(r.status).json(await r.json());
+    }
+
     return res.status(400).json({ erro: "ação desconhecida: " + acao });
   } catch (e) {
     return res.status(502).json({ erro: "falha ao falar com a VPS: " + String(e).slice(0, 300) });

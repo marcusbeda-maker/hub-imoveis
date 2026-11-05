@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { maisFerramentas } from "./ferramentas.js";
 import { initializeApp } from "firebase/app";
 import {
   getFirestore, collection, addDoc, updateDoc, deleteDoc,
@@ -1109,6 +1110,7 @@ async function enviarParceiro(im) {
   <button className="rede fb" onClick={() => compartilharFacebook(im)}>👍 Facebook</button>
   <button className="rede pub-ig" onClick={() => publicarAgora(im, "instagram")} title="Publica direto no @marcusbeda, com até 10 fotos">🚀 Publicar IG</button>
   <button className="rede pub-fb" onClick={() => publicarAgora(im, "facebook")} title="Publica direto na página Marcus Béda Imóveis">🚀 Publicar FB</button>
+  <button className="rede pub-ig" onClick={() => maisFerramentas(im, avisar)} title="Reels Gancho + preço, Tour rápido e kit para CapCut/Edits/Canva">🧰 Mais modelos</button>
   <button className="rede drive" onClick={() => salvarNoDrive(im)}>📁 Drive</button>
   <button className="rede parceiro" onClick={() => enviarParceiro(im)}>🤝 Parceiro</button>
   {im.link && <a href={im.link} target="_blank" rel="noreferrer" className="site-link">Ver site</a>}
